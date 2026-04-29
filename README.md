@@ -1,12 +1,7 @@
 # 🤖 Staj Duyuru Botu
 
 **LinkedIn, Kariyer.net ve Youthall'u her saat otomatik olarak tarayan, yeni staj ilanlarını anında Telegram'a bildiren bot.**
-
-Artık her sabah iş ilanı sitelerinde manuel arama yapmak yok. Bot seni uyurken bile takip eder.
-
 ---
-
-## 📸 Nasıl Görünüyor?
 
 Her yeni staj ilanı için Telegram'a şöyle bir mesaj gelir:
 
