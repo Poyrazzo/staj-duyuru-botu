@@ -7,6 +7,8 @@ from .toptalent_scraper import ToptalentScraper
 from .vizyoner_genc_scraper import VizyonerGencScraper
 from .kariyer_kapisi_scraper import KariyerKapisiScraper
 from .company_career_scraper import CompanyCareerScraper
+from .extra_boards_scraper import ExtraBoardsScraper
+from .google_scraper import GoogleScraper
 
 __all__ = [
     "BaseScraper",
@@ -18,4 +20,6 @@ __all__ = [
     "VizyonerGencScraper",
     "KariyerKapisiScraper",
     "CompanyCareerScraper",
+    "ExtraBoardsScraper",
+    "GoogleScraper",
 ]
