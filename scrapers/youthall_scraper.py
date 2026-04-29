@@ -42,7 +42,7 @@ LOCATION_SEL = "[class*='location'], [class*='city']"
 DATE_SEL = "[class*='date'], [class*='time'], time"
 LINK_SEL = "a"
 
-MAX_SCROLL_ATTEMPTS = 8
+MAX_SCROLL_ATTEMPTS = 3
 
 
 class YouthallScraper(BaseScraper):
@@ -81,11 +81,13 @@ class YouthallScraper(BaseScraper):
                 if api_jobs:
                     all_jobs.extend(api_jobs)
                 else:
-                    # Fallback: DOM scraping
+                    # Fallback: DOM scraping — stop after first URL that yields results
                     for url in (JOBS_URL, TALENT_URL):
                         jobs = await self._scrape_url(page, url)
                         all_jobs.extend(jobs)
-                        await self.random_sleep()
+                        if jobs:
+                            break
+                        await self.random_sleep(1, 2)
             finally:
                 await context.close()
                 await browser.close()
@@ -200,8 +202,8 @@ class YouthallScraper(BaseScraper):
     async def _scrape_url(self, page, url: str) -> list[Job]:
         jobs: list[Job] = []
         try:
-            await page.goto(url, wait_until="domcontentloaded", timeout=30_000)
-            await self.random_sleep(2, 5)
+            await page.goto(url, wait_until="domcontentloaded", timeout=20_000)
+            await self.random_sleep(1, 2)
         except Exception as exc:
             self.logger.warning("Navigation failed for %s: %s", url, exc)
             return []
@@ -209,17 +211,17 @@ class YouthallScraper(BaseScraper):
         # Wait for cards to render
         for sel in CARD_SELECTORS:
             try:
-                await page.wait_for_selector(sel, timeout=8_000)
+                await page.wait_for_selector(sel, timeout=5_000)
                 break
             except Exception:
                 continue
 
-        # Infinite scroll
+        # Scroll to load more cards
         prev_count = 0
         for _ in range(MAX_SCROLL_ATTEMPTS):
             await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
             import asyncio
-            await asyncio.sleep(1.5)
+            await asyncio.sleep(1.0)
             cards = await self._find_cards(page)
             if len(cards) == prev_count:
                 break

@@ -47,9 +47,13 @@ jobs:
         run: |
           echo "TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }}" > .env
           echo "TELEGRAM_CHAT_ID=${{ secrets.TELEGRAM_CHAT_ID }}"    >> .env
+          echo "GOOGLE_CSE_API_KEY=${{ secrets.GOOGLE_CSE_API_KEY }}" >> .env
+          echo "GOOGLE_CSE_CX=${{ secrets.GOOGLE_CSE_CX }}"          >> .env
           echo "HEADLESS=true"                                         >> .env
           echo "LOG_LEVEL=INFO"                                        >> .env
           echo "LOOKBACK_DAYS=1"                                       >> .env
+          echo "MAX_JOBS_PER_SOURCE=50"                                >> .env
+          echo "DB_PATH=data/jobs.db"                                  >> .env
 
       - name: Run bot (scrape)
         if: ${{ github.event.inputs.mode != 'health' }}

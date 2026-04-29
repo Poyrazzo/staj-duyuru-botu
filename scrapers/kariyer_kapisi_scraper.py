@@ -15,11 +15,11 @@ from .base_scraper import BaseScraper, ScraperError
 
 logger = logging.getLogger(__name__)
 
-BASE_URL = "https://www.kariyerkapisi.cbiko.gov.tr"
-# Primary URL from config — the correct search endpoint
-SEARCH_URL = f"{BASE_URL}/Arama/staj"
-# Alternative fallback URL
-STAJ_URL = f"{BASE_URL}/Arama?tip=staj&siralama=tarih"
+BASE_URL = "https://www.kariyer.gov.tr"
+# Primary: public Turkish government career portal (accessible outside Turkey)
+SEARCH_URL = f"{BASE_URL}/is-ilanlari?arama=staj"
+# Fallback: old cbiko domain (may only resolve inside Turkey)
+STAJ_URL = "https://www.kariyerkapisi.cbiko.gov.tr/Arama/staj"
 
 
 class KariyerKapisiScraper(BaseScraper):
