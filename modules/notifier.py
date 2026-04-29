@@ -89,11 +89,13 @@ class TelegramNotifier:
         await self._send("\n".join(lines))
 
     async def send_startup_message(self) -> None:
+        import config as _cfg
         await self._send(
             "🚀 <b>Staj Botu Başlatıldı</b>\n"
             f"<i>{datetime.now().strftime('%d.%m.%Y %H:%M')}</i>\n\n"
-            "LinkedIn, Kariyer.net, Youthall, Toptalent, Vizyoner Genç, Kariyer Kapısı "
-            "ve 16 şirket kariyer sayfası izleniyor.\n"
+            "LinkedIn, Kariyer.net, Youthall, Toptalent, Vizyoner Genç, "
+            f"Kariyer Kapısı, SecretCV, Yenibiriş, Co-Matching, İSO Staj\n"
+            f"ve <b>{len(_cfg.COMPANY_CONFIGS)} şirket kariyer sayfası</b> izleniyor.\n"
             "Yeni staj ilanları anında bildirilecek. ✅"
         )
 

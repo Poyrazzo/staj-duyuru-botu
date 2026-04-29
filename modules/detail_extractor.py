@@ -67,11 +67,14 @@ INTERN_TITLE_SIGNALS = [
     "aday", "kampüs", "genç yetenek",
 ]
 
-# Title phrases that disqualify (full-time job)
+# Title phrases that disqualify (full-time job).
+# Intentionally narrow — "senior/uzman/specialist" are removed because they
+# appear in internship page copy ("mentored by senior engineers") causing
+# false positives. These are still filtered at title level in data_cleaner.
 FULLTIME_TITLE_SIGNALS = [
-    "senior", "sr.", "lead ", "manager", "director", "head of",
-    " vp ", "uzman", "specialist", "tam zamanlı", "full-time",
-    "kalıcı", "daimi",
+    "sr.", "manager", "director", "head of",
+    " vp ", "tam zamanlı", "full-time", "full time",
+    "kalıcı pozisyon", "daimi",
 ]
 
 

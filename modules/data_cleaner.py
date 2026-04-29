@@ -69,7 +69,6 @@ class DataCleaner:
             seen_hashes.add(job.semantic_hash)
             result.append(job)
 
-        logger.info("DataCleaner: %d/%d jobs passed.", len(result), sum(1 for _ in []))
         logger.info("DataCleaner: %d jobs passed filtering.", len(result))
         return result
 
