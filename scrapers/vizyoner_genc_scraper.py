@@ -65,13 +65,24 @@ class VizyonerGencScraper(BaseScraper):
             return []
 
         selectors = [
-            ".ilan-item", ".staj-item", ".program-item",
-            "div[class*='ilan']", "article", ".card",
+            # Specific class patterns for Turkish/WordPress sites
+            ".ilan-item", ".staj-item", ".program-item", ".ilan-kutusu",
+            "div[class*='ilan']", "div[class*='staj']", "div[class*='program']",
+            # Bootstrap / generic card patterns
+            ".card", ".card-body", ".post-item", ".blog-post", ".entry",
+            ".haber", ".content-item",
+            # Bootstrap grid cells
+            ".col-md-4 article", ".col-lg-4 article", ".col-sm-6 article",
+            # Data attrs
+            "[data-type='ilan']", "[data-category*='staj']",
+            # Broad last resort
+            "article", "li",
         ]
         cards = []
         for sel in selectors:
-            cards = await page.query_selector_all(sel)
-            if cards:
+            found = await page.query_selector_all(sel)
+            if found and len(found) > 1:
+                cards = found
                 break
 
         jobs = []
@@ -79,6 +90,11 @@ class VizyonerGencScraper(BaseScraper):
             job = await self._parse_card(card)
             if job:
                 jobs.append(job)
+
+        if not jobs:
+            fallback = await self.harvest_job_links(page, self.source_name, BASE_URL)
+            jobs.extend(fallback)
+
         return jobs
 
     async def _parse_card(self, card) -> Job | None:

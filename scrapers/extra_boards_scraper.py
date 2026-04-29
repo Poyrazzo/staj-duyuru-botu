@@ -120,8 +120,9 @@ class ExtraBoardsScraper(BaseScraper):
 
         cards = []
         for sel in board["card_sel"].split(", "):
-            cards = await page.query_selector_all(sel.strip())
-            if cards:
+            found = await page.query_selector_all(sel.strip())
+            if found and len(found) > 1:
+                cards = found
                 break
 
         base_url = board["url"].split("/")[0] + "//" + board["url"].split("/")[2]
@@ -130,6 +131,11 @@ class ExtraBoardsScraper(BaseScraper):
             job = await self._parse_card(card, board, base_url)
             if job:
                 jobs.append(job)
+
+        if not jobs:
+            fallback = await self.harvest_job_links(page, board["name"], base_url)
+            jobs.extend(fallback[:config.MAX_JOBS_PER_SOURCE])
+
         return jobs
 
     async def _parse_card(self, card, board: dict, base_url: str) -> Job | None:

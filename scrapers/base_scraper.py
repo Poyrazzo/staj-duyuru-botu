@@ -68,3 +68,45 @@ class BaseScraper(abc.ABC):
         if config.HTTP_PROXY:
             opts["proxy"] = {"server": config.HTTP_PROXY}
         return opts
+
+    @staticmethod
+    async def harvest_job_links(page, source_name: str, base_url: str) -> list[Job]:
+        """Last-resort fallback: scan all <a> tags for internship-looking links."""
+        intern_kw = {"staj", "intern", "program", "trainee", "aday", "yetenek",
+                     "ilan", "job", "kariyer", "position", "pozisyon"}
+        path_kw   = {"/ilan", "/job", "/staj", "/intern", "/pozisyon",
+                     "/position", "/kariyer", "/program"}
+        try:
+            links = await page.query_selector_all("a[href]")
+        except Exception:
+            return []
+
+        jobs: list[Job] = []
+        seen: set[str] = set()
+        for link in links[:400]:
+            try:
+                href = (await link.get_attribute("href") or "").strip()
+                text = (await link.inner_text()).strip()
+                if not text or len(text) < 5 or len(text) > 300:
+                    continue
+                url = (
+                    href if href.startswith("http")
+                    else f"{base_url}{href}" if href.startswith("/")
+                    else ""
+                )
+                if not url or url in seen:
+                    continue
+                haystack = (text + " " + href).lower()
+                if (any(kw in haystack for kw in intern_kw)
+                        or any(pk in href.lower() for pk in path_kw)):
+                    seen.add(url)
+                    jobs.append(Job(
+                        title=text[:200],
+                        company="Bilinmiyor",
+                        location="Türkiye",
+                        source=source_name,
+                        url=url,
+                    ))
+            except Exception:
+                continue
+        return jobs

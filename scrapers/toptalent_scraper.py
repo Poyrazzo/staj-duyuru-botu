@@ -17,11 +17,17 @@ INTERN_URL = "https://toptalent.co/tr/ilanlar/?type=internship&sort=newest"
 TALENT_URL = "https://toptalent.co/tr/ilanlar/?type=talent_program&sort=newest"
 
 CARD_SELECTORS = [
-    "div[class*='JobListItem']",
-    "div[class*='job-card']",
-    "article[class*='job']",
-    "div.job-item",
-    "li.job-listing",
+    # React/CSS-module patterns
+    "div[class*='JobListItem']", "div[class*='JobCard']",
+    "div[class*='PositionCard']", "div[class*='ListingCard']",
+    "div[class*='job-card']", "div[class*='job-item']",
+    # Data attributes
+    "[data-cy*='job']", "[data-testid*='job']",
+    # Semantic / generic
+    "article[class*='job']", "li[class*='job']",
+    "article", "li.job-listing",
+    # Broad — last resort before harvest
+    "main ul li", "main section article",
 ]
 
 
@@ -64,9 +70,8 @@ class ToptalentScraper(BaseScraper):
     async def _scrape_url(self, page, url: str) -> list[Job]:
         jobs: list[Job] = []
         try:
-            await page.goto(url, wait_until="domcontentloaded", timeout=30_000)
-            await self.random_sleep(2, 5)
-            # scroll to load more
+            await page.goto(url, wait_until="networkidle", timeout=40_000)
+            await self.random_sleep(2, 4)
             for _ in range(4):
                 await page.evaluate("window.scrollBy(0, window.innerHeight)")
                 import asyncio; await asyncio.sleep(1)
@@ -76,14 +81,20 @@ class ToptalentScraper(BaseScraper):
 
         cards = []
         for sel in CARD_SELECTORS:
-            cards = await page.query_selector_all(sel)
-            if cards:
+            found = await page.query_selector_all(sel)
+            if found and len(found) > 1:
+                cards = found
                 break
 
         for card in cards:
             job = await self._parse_card(card)
             if job:
                 jobs.append(job)
+
+        if not jobs:
+            fallback = await self.harvest_job_links(page, self.source_name, BASE_URL)
+            jobs.extend(fallback)
+
         return jobs
 
     async def _parse_card(self, card) -> Job | None:

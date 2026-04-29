@@ -69,12 +69,32 @@ class KariyerScraper(BaseScraper):
         url = config.KARIYER_URL
         page_num = 0
 
+        # Warm up: visit homepage first so CF can set cookies/complete JS challenge
+        await page.set_extra_http_headers({
+            "Accept-Language": "tr-TR,tr;q=0.9,en-US;q=0.8,en;q=0.7",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        })
+        try:
+            await page.goto("https://www.kariyer.net/", wait_until="networkidle", timeout=30_000)
+            await self.random_sleep(2, 4)
+        except Exception:
+            pass
+
         while url and page_num < MAX_PAGES:
             page_num += 1
             self.logger.debug("Kariyer page %d: %s", page_num, url)
             try:
-                await page.goto(url, wait_until="domcontentloaded", timeout=30_000)
-                await self.random_sleep(2, 5)
+                await page.goto(url, wait_until="networkidle", timeout=45_000)
+                await self.random_sleep(2, 4)
+                # Check for Cloudflare block
+                content = await page.content()
+                if "Access to this page has been denied" in content or "Just a moment" in content:
+                    self.logger.warning("Kariyer.net: Cloudflare block on page %d, waiting…", page_num)
+                    import asyncio as _aio; await _aio.sleep(5)
+                    content = await page.content()
+                    if "Access to this page has been denied" in content:
+                        self.logger.warning("Kariyer.net: still blocked, skipping.")
+                        break
                 # Scroll to trigger lazy-load
                 await _scroll_page(page)
                 await self.random_sleep(1, 3)
@@ -84,13 +104,21 @@ class KariyerScraper(BaseScraper):
 
             cards = await page.query_selector_all(CARD_SELECTOR)
             if not cards:
-                # Try alternative selector for Kariyer's A/B tested layouts
-                cards = await page.query_selector_all("div.job-list-item, article.job-item")
+                cards = await page.query_selector_all("div.job-list-item, article.job-item, [class*='jobItem'], [class*='job-item']")
 
-            for card in cards:
-                job = await self._parse_card(card, page)
-                if job:
-                    jobs.append(job)
+            if not cards:
+                # Fallback: harvest any job links on the page
+                fallback = await self.harvest_job_links(
+                    page, self.source_name, "https://www.kariyer.net"
+                )
+                jobs.extend(fallback)
+                if fallback:
+                    self.logger.info("Kariyer.net page %d: %d jobs via link-harvest fallback", page_num, len(fallback))
+            else:
+                for card in cards:
+                    job = await self._parse_card(card, page)
+                    if job:
+                        jobs.append(job)
 
             await self.random_sleep()
 

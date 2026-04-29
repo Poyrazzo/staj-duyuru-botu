@@ -27,8 +27,13 @@ TALENT_URL = f"{BASE_URL}/tr/jobs/?type=talent_program"
 CARD_SELECTORS = [
     "div[class*='JobCard']",
     "div[class*='job-card']",
+    "div[class*='JobItem']",
+    "div[class*='PositionCard']",
     "article[class*='job']",
+    "li[class*='job']",
     "div.job-list-item",
+    "[data-cy*='job']",
+    "[data-testid*='job']",
 ]
 
 TITLE_SEL = "[class*='JobCard__title'], [class*='job-title'], h3, h2"
@@ -123,10 +128,10 @@ class YouthallScraper(BaseScraper):
         page.on("response", handle_response)
 
         try:
-            await page.goto(JOBS_URL, wait_until="networkidle", timeout=30_000)
-            await self.random_sleep(3, 6)
-            await page.goto(TALENT_URL, wait_until="networkidle", timeout=30_000)
-            await self.random_sleep(3, 6)
+            await page.goto(JOBS_URL, wait_until="domcontentloaded", timeout=20_000)
+            await self.random_sleep(2, 3)
+            await page.goto(TALENT_URL, wait_until="domcontentloaded", timeout=20_000)
+            await self.random_sleep(2, 3)
         except Exception as exc:
             self.logger.debug("API intercept navigation failed: %s", exc)
             return []
@@ -225,6 +230,10 @@ class YouthallScraper(BaseScraper):
             job = await self._parse_card(card, url)
             if job:
                 jobs.append(job)
+
+        if not jobs:
+            fallback = await self.harvest_job_links(page, self.source_name, BASE_URL)
+            jobs.extend(fallback)
 
         return jobs
 

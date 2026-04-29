@@ -120,9 +120,7 @@ ISO_STAJ_URL: str = "https://staj.iso.org.tr/"
 # ATS DIRECT API (Greenhouse & Lever)
 # ═══════════════════════════════════════════════════════════════
 GREENHOUSE_COMPANIES: dict[str, str] = {
-    "Trendyol":  "trendyol",
-    "Getir":     "getir",
-    "DHL Turkey": "dhl",
+    # Verified slugs only — unconfirmed ones are handled by CompanyCareerScraper
 }
 
 LEVER_COMPANIES: dict[str, str] = {

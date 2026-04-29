@@ -16,9 +16,10 @@ from .base_scraper import BaseScraper, ScraperError
 logger = logging.getLogger(__name__)
 
 BASE_URL = "https://www.kariyerkapisi.cbiko.gov.tr"
-SEARCH_URL = f"{BASE_URL}/Arama?tip=staj&siralama=tarih"
-# The portal also has a dedicated internship section
-STAJ_URL = f"{BASE_URL}/staj-ilanlari"
+# Primary URL from config — the correct search endpoint
+SEARCH_URL = f"{BASE_URL}/Arama/staj"
+# Alternative fallback URL
+STAJ_URL = f"{BASE_URL}/Arama?tip=staj&siralama=tarih"
 
 
 class KariyerKapisiScraper(BaseScraper):
@@ -77,14 +78,23 @@ class KariyerKapisiScraper(BaseScraper):
             return []
 
         card_selectors = [
-            ".ilan-card", ".job-card", ".staj-card",
+            # Government portal specific
+            ".ilan-card", ".staj-card", ".card-ilan",
             "div[class*='ilan']", "li[class*='ilan']",
-            ".listing-item", "article",
+            ".ilan-listesi li", ".sonuc-listesi li",
+            ".search-result-item", ".result-item",
+            # Bootstrap / generic
+            ".listing-item", ".panel-body .row",
+            "table.table tbody tr",
+            ".card", "article",
+            # Broad last resort
+            "li",
         ]
         cards = []
         for sel in card_selectors:
-            cards = await page.query_selector_all(sel)
-            if cards:
+            found = await page.query_selector_all(sel)
+            if found and len(found) > 1:
+                cards = found
                 break
 
         jobs = []
@@ -92,6 +102,11 @@ class KariyerKapisiScraper(BaseScraper):
             job = await self._parse_card(card)
             if job:
                 jobs.append(job)
+
+        if not jobs:
+            fallback = await self.harvest_job_links(page, self.source_name, BASE_URL)
+            jobs.extend(fallback)
+
         return jobs
 
     async def _parse_card(self, card) -> Job | None:
