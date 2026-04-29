@@ -1,0 +1,28 @@
+# Core
+python-dotenv==1.0.1
+pandas==2.2.2
+requests==2.32.3
+aiohttp==3.9.5
+
+# Browser Automation
+playwright==1.44.0
+playwright-stealth==1.0.6
+
+# Job Scraping
+python-jobspy==1.1.82
+
+# Telegram
+python-telegram-bot==21.3
+
+# Database
+# SQLite is built-in to Python
+
+# Scheduling
+schedule==1.2.2
+
+# Logging
+colorlog==6.8.2
+
+# Utilities
+fake-useragent==1.5.1
+tenacity==8.3.0

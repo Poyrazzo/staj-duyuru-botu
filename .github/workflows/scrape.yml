@@ -1,0 +1,68 @@
+name: Staj Duyuru Bot
+
+on:
+  schedule:
+    # Every hour, 06:00–23:00 Turkey time (UTC+3 → UTC 03:00–20:00)
+    - cron: "0 3-20 * * *"
+  workflow_dispatch:   # manual trigger from GitHub UI
+    inputs:
+      mode:
+        description: "Run mode"
+        required: false
+        default: "scrape"
+        type: choice
+        options: [scrape, health]
+
+jobs:
+  run-bot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Install Playwright browsers
+        run: playwright install chromium --with-deps
+
+      - name: Restore SQLite database cache
+        uses: actions/cache@v4
+        with:
+          path: data/jobs.db
+          key: jobs-db-${{ github.run_id }}
+          restore-keys: jobs-db-
+
+      - name: Create .env from secrets
+        run: |
+          echo "TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }}" > .env
+          echo "TELEGRAM_CHAT_ID=${{ secrets.TELEGRAM_CHAT_ID }}"    >> .env
+          echo "HEADLESS=true"                                         >> .env
+          echo "LOG_LEVEL=INFO"                                        >> .env
+          echo "LOOKBACK_DAYS=1"                                       >> .env
+
+      - name: Run bot (scrape)
+        if: ${{ github.event.inputs.mode != 'health' }}
+        run: python main.py
+
+      - name: Run health check
+        if: ${{ github.event.inputs.mode == 'health' }}
+        run: python main.py --health
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bot-logs-${{ github.run_number }}
+          path: logs/
+          retention-days: 7
