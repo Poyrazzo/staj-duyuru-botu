@@ -23,6 +23,10 @@ class Job:
     description: str = ""
     posted_date: Optional[str] = None
     category: str = "other"
+    program_type: str = "unknown"   # internship | talent_program | full_time | unknown
+    deadline: Optional[str] = None  # son başvuru tarihi
+    start_date: Optional[str] = None  # başvuru başlangıç tarihi
+    requirements: str = ""          # newline-separated requirements list
     # computed on post-init
     job_id: str = field(default="", init=False)
     semantic_hash: str = field(default="", init=False)
@@ -44,6 +48,10 @@ class Job:
             "description": self.description,
             "posted_date": self.posted_date,
             "category": self.category,
+            "program_type": self.program_type,
+            "deadline": self.deadline,
+            "start_date": self.start_date,
+            "requirements": self.requirements,
             "discovered_at": self.discovered_at,
         }
 
@@ -74,6 +82,10 @@ class Database:
         description     TEXT,
         posted_date     TEXT,
         category        TEXT DEFAULT 'other',
+        program_type    TEXT DEFAULT 'unknown',
+        deadline        TEXT,
+        start_date      TEXT,
+        requirements    TEXT,
         discovered_at   TEXT NOT NULL,
         notified        INTEGER DEFAULT 0
     );
@@ -87,6 +99,14 @@ class Database:
         message     TEXT
     );
     """
+
+    # Columns added after initial release — migrate safely with ALTER TABLE
+    _MIGRATION_COLS: dict[str, str] = {
+        "program_type": "TEXT DEFAULT 'unknown'",
+        "deadline":     "TEXT",
+        "start_date":   "TEXT",
+        "requirements": "TEXT",
+    }
 
     def __init__(self, db_path: str) -> None:
         os.makedirs(os.path.dirname(db_path) if os.path.dirname(db_path) else ".", exist_ok=True)
@@ -113,7 +133,16 @@ class Database:
                 s = stmt.strip()
                 if s:
                     conn.execute(s)
+            self._migrate(conn)
         logger.debug("Database initialised at %s", self.db_path)
+
+    def _migrate(self, conn: sqlite3.Connection) -> None:
+        """Add any missing columns to an existing database."""
+        existing = {row[1] for row in conn.execute("PRAGMA table_info(jobs)").fetchall()}
+        for col, col_type in self._MIGRATION_COLS.items():
+            if col not in existing:
+                conn.execute(f"ALTER TABLE jobs ADD COLUMN {col} {col_type}")
+                logger.info("DB migration: added column '%s'", col)
 
     def is_new_job(self, job: Job) -> bool:
         """Return True if this job has never been seen (by semantic hash OR job_id)."""
@@ -132,23 +161,23 @@ class Database:
         with self._conn() as conn:
             conn.execute(
                 """INSERT OR IGNORE INTO jobs
-                   (job_id, semantic_hash, title, company, location, source,
-                    url, description, posted_date, category, discovered_at, notified)
+                   (job_id, semantic_hash, title, company, location, source, url,
+                    description, posted_date, category, program_type, deadline,
+                    start_date, requirements, discovered_at, notified)
                    VALUES (:job_id, :semantic_hash, :title, :company, :location,
                            :source, :url, :description, :posted_date, :category,
+                           :program_type, :deadline, :start_date, :requirements,
                            :discovered_at, 0)""",
                 d,
             )
-        logger.debug("Saved new job: %s @ %s [%s]", job.title, job.company, job.source)
+        logger.debug("Saved: %s @ %s [%s]", job.title, job.company, job.source)
         return True
 
     def mark_notified(self, job_id: str) -> None:
         with self._conn() as conn:
-            conn.execute(
-                "UPDATE jobs SET notified=1 WHERE job_id=?", (job_id,)
-            )
+            conn.execute("UPDATE jobs SET notified=1 WHERE job_id=?", (job_id,))
 
-    def get_unnotified_jobs(self) -> list[Job]:
+    def get_unnotified_jobs(self) -> list["Job"]:
         with self._conn() as conn:
             rows = conn.execute(
                 "SELECT * FROM jobs WHERE notified=0 ORDER BY discovered_at ASC"
@@ -179,6 +208,7 @@ class Database:
 
 
 def _row_to_job(row: sqlite3.Row) -> Job:
+    cols = set(row.keys())
     j = Job(
         title=row["title"],
         company=row["company"],
@@ -188,6 +218,10 @@ def _row_to_job(row: sqlite3.Row) -> Job:
         description=row["description"] or "",
         posted_date=row["posted_date"],
         category=row["category"] or "other",
+        program_type=row["program_type"] if "program_type" in cols else "unknown",
+        deadline=row["deadline"] if "deadline" in cols else None,
+        start_date=row["start_date"] if "start_date" in cols else None,
+        requirements=row["requirements"] if "requirements" in cols else "",
     )
     j.job_id = row["job_id"]
     j.semantic_hash = row["semantic_hash"]

@@ -1,6 +1,12 @@
-"""Data cleaning, keyword filtering, and role categorisation."""
+"""
+Data Cleaner
+============
+Three-stage pipeline:
+  1. Internship-only gate  — rejects full-time jobs before anything else
+  2. Whitelist / blacklist — keyword-based relevance filter
+  3. Deduplication         — cross-source semantic hash
+"""
 
-import re
 import logging
 from typing import Iterable
 
@@ -9,10 +15,11 @@ from db.database import Job
 
 logger = logging.getLogger(__name__)
 
+# program_type values that are allowed through
+ALLOWED_PROGRAM_TYPES = {"internship", "talent_program", "unknown"}
+
 
 class DataCleaner:
-    """Filter raw Job objects and assign role categories."""
-
     def __init__(
         self,
         whitelist: list[str] | None = None,
@@ -21,50 +28,72 @@ class DataCleaner:
     ) -> None:
         self._white = [w.lower() for w in (whitelist or config.WHITELIST_KEYWORDS)]
         self._black = [b.lower() for b in (blacklist or config.BLACKLIST_KEYWORDS)]
+        self._intern_confirm = [k.lower() for k in config.INTERN_CONFIRM_KEYWORDS]
         self._cats = {
             cat: [kw.lower() for kw in kws]
             for cat, kws in (categories or config.ROLE_CATEGORIES).items()
         }
 
     def clean(self, jobs: Iterable[Job]) -> list[Job]:
-        """Filter, deduplicate and categorise a batch of jobs."""
         seen_hashes: set[str] = set()
         result: list[Job] = []
 
         for job in jobs:
-            if not self._passes_whitelist(job):
-                logger.debug("FILTERED (no whitelist match): %s – %s", job.title, job.company)
-                continue
-            if self._hits_blacklist(job):
-                logger.debug("FILTERED (blacklist hit): %s – %s", job.title, job.company)
-                continue
-            if job.semantic_hash in seen_hashes:
-                logger.debug("FILTERED (in-batch duplicate): %s – %s", job.title, job.company)
+            # ── Stage 1: reject confirmed full-time jobs ─────────
+            if job.program_type == "full_time":
+                logger.debug("REJECTED (full_time): %s @ %s", job.title, job.company)
                 continue
 
+            # ── Stage 2: blacklist on title+company ──────────────
+            if self._hits_blacklist(job):
+                logger.debug("REJECTED (blacklist): %s @ %s", job.title, job.company)
+                continue
+
+            # ── Stage 3: whitelist — must match at least one ─────
+            if not self._passes_whitelist(job):
+                logger.debug("REJECTED (no whitelist): %s @ %s", job.title, job.company)
+                continue
+
+            # ── Stage 4: in-batch dedup ──────────────────────────
+            if job.semantic_hash in seen_hashes:
+                logger.debug("REJECTED (duplicate): %s @ %s", job.title, job.company)
+                continue
+
+            # ── Set program_type if not yet known ────────────────
+            if job.program_type == "unknown":
+                job.program_type = self._infer_program_type(job)
+
+            # ── Assign role category ─────────────────────────────
             job.category = self._classify(job)
+
             seen_hashes.add(job.semantic_hash)
             result.append(job)
 
+        logger.info("DataCleaner: %d/%d jobs passed.", len(result), sum(1 for _ in []))
         logger.info("DataCleaner: %d jobs passed filtering.", len(result))
         return result
 
-    # ── Private helpers ──────────────────────────────────────
+    # ── Helpers ──────────────────────────────────────────────
 
     def _haystack(self, job: Job) -> str:
-        """Combined lowercased text field for matching."""
-        return (
-            f"{job.title} {job.company} {job.description}"
-        ).lower()
+        return f"{job.title} {job.company} {job.description}".lower()
+
+    def _title_company(self, job: Job) -> str:
+        return f"{job.title} {job.company}".lower()
 
     def _passes_whitelist(self, job: Job) -> bool:
         hay = self._haystack(job)
         return any(kw in hay for kw in self._white)
 
     def _hits_blacklist(self, job: Job) -> bool:
-        # Only match against title + company (not full description)
-        hay = f"{job.title} {job.company}".lower()
+        hay = self._title_company(job)
         return any(kw in hay for kw in self._black)
+
+    def _infer_program_type(self, job: Job) -> str:
+        hay = self._haystack(job)
+        if any(kw in hay for kw in self._intern_confirm):
+            return "internship"
+        return "unknown"
 
     def _classify(self, job: Job) -> str:
         hay = self._haystack(job)
@@ -73,11 +102,8 @@ class DataCleaner:
                 return category
         return "other"
 
-    # ── Utility: sort by date ────────────────────────────────
-
     @staticmethod
     def sort_by_date(jobs: list[Job], newest_first: bool = True) -> list[Job]:
         def _key(j: Job) -> str:
-            return j.posted_date or j.discovered_at or ""
-
+            return j.deadline or j.posted_date or j.discovered_at or ""
         return sorted(jobs, key=_key, reverse=newest_first)

@@ -1,4 +1,4 @@
-"""Telegram notification module with rate-limiting and retry logic."""
+"""Telegram notification module — rich HTML format with all detail fields."""
 
 import asyncio
 import logging
@@ -9,35 +9,33 @@ from db.database import Job
 
 logger = logging.getLogger(__name__)
 
-# Telegram hard-limit: 30 messages/second per bot; we stay well under it
-SEND_DELAY = 1.5  # seconds between messages
+SEND_DELAY = 1.5
 
 CATEGORY_EMOJI: dict[str, str] = {
-    "software":   "💻",
-    "marketing":  "📣",
-    "finance":    "💰",
-    "design":     "🎨",
-    "hr":         "🤝",
-    "operations": "⚙️",
-    "sales":      "📈",
-    "other":      "📋",
+    "software":    "💻",
+    "marketing":   "📣",
+    "finance":     "💰",
+    "design":      "🎨",
+    "hr":          "🤝",
+    "operations":  "⚙️",
+    "sales":       "📈",
+    "legal":       "⚖️",
+    "engineering": "🔧",
+    "other":       "📋",
 }
 
 SOURCE_EMOJI: dict[str, str] = {
-    "LinkedIn":    "🔵",
-    "Kariyer.net": "🟠",
-    "Youthall":    "🟣",
+    "LinkedIn":      "🔵",
+    "Kariyer.net":   "🟠",
+    "Youthall":      "🟣",
+    "Toptalent":     "🟡",
+    "Vizyoner Genç": "🟤",
+    "Kariyer Kapısı":"🟢",
 }
 
 
 class TelegramNotifier:
-    """Sends job alerts and status messages to a Telegram chat."""
-
-    def __init__(
-        self,
-        token: str | None = None,
-        chat_id: str | None = None,
-    ) -> None:
+    def __init__(self, token: str | None = None, chat_id: str | None = None) -> None:
         self.token = token or config.TELEGRAM_BOT_TOKEN
         self.chat_id = chat_id or config.TELEGRAM_CHAT_ID
         self._bot = None
@@ -49,85 +47,65 @@ class TelegramNotifier:
         return self._bot
 
     async def send_job_alert(self, job: Job) -> bool:
-        """Send a single job alert. Returns True on success."""
-        message = _format_job_message(job)
-        return await self._send(message, disable_web_page_preview=True)
+        return await self._send(_format_job_message(job), disable_web_page_preview=True)
 
     async def send_batch(self, jobs: list[Job]) -> int:
-        """Send alerts for multiple jobs. Returns count of successful sends."""
         if not jobs:
             return 0
-
         sent = 0
         if len(jobs) > 3:
-            header = (
+            await self._send(
                 f"🔍 <b>{len(jobs)} yeni staj ilanı bulundu!</b>\n"
                 f"<i>{datetime.now().strftime('%d.%m.%Y %H:%M')}</i>"
             )
-            await self._send(header)
             await asyncio.sleep(SEND_DELAY)
-
         for job in jobs:
-            ok = await self.send_job_alert(job)
-            if ok:
+            if await self.send_job_alert(job):
                 sent += 1
             await asyncio.sleep(SEND_DELAY)
-
         return sent
 
     async def send_health_report(self, stats: dict, source_statuses: dict[str, str]) -> None:
-        """Send weekly bot health report."""
         lines = [
             "🤖 <b>HAFTALIK BOT DURUM RAPORU</b>",
             f"📅 <i>{datetime.now().strftime('%d.%m.%Y %H:%M')}</i>",
             "",
-            "📊 <b>Veritabanı İstatistikleri:</b>",
+            "📊 <b>Veritabanı:</b>",
             f"  • Toplam ilan: <code>{stats.get('total', 0)}</code>",
         ]
-
-        by_source = stats.get("by_source", {})
-        for src, count in by_source.items():
+        for src, count in stats.get("by_source", {}).items():
             emoji = SOURCE_EMOJI.get(src, "📌")
             lines.append(f"  {emoji} {_h(src)}: <code>{count}</code>")
-
         lines += ["", "🔍 <b>Kaynak Durumları:</b>"]
         for source, status in source_statuses.items():
             icon = "✅" if status == "OK" else "❌"
             lines.append(f"  {icon} {_h(source)}: {_h(status)}")
-
         by_cat = stats.get("by_category", {})
         if by_cat:
-            lines += ["", "🗂 <b>Kategorilere Göre:</b>"]
+            lines += ["", "🗂 <b>Kategoriler:</b>"]
             for cat, count in sorted(by_cat.items(), key=lambda x: -x[1]):
                 emoji = CATEGORY_EMOJI.get(cat, "📋")
                 lines.append(f"  {emoji} {_h(cat.capitalize())}: <code>{count}</code>")
-
         await self._send("\n".join(lines))
 
     async def send_startup_message(self) -> None:
         await self._send(
             "🚀 <b>Staj Botu Başlatıldı</b>\n"
             f"<i>{datetime.now().strftime('%d.%m.%Y %H:%M')}</i>\n\n"
-            "LinkedIn, Kariyer.net ve Youthall izleniyor. "
-            "Yeni staj ilanları anında bildirilecek."
+            "LinkedIn, Kariyer.net, Youthall, Toptalent, Vizyoner Genç, Kariyer Kapısı "
+            "ve 16 şirket kariyer sayfası izleniyor.\n"
+            "Yeni staj ilanları anında bildirilecek. ✅"
         )
 
     async def send_error_alert(self, source: str, error: str) -> None:
         await self._send(
-            f"⚠️ <b>HATA: {_h(source)}</b>\n"
-            f"<code>{_h(error[:300])}</code>"
+            f"⚠️ <b>HATA: {_h(source)}</b>\n<code>{_h(error[:300])}</code>"
         )
 
-    async def _send(
-        self,
-        text: str,
-        disable_web_page_preview: bool = True,
-        retries: int = 3,
-    ) -> bool:
+    async def _send(self, text: str, disable_web_page_preview: bool = True, retries: int = 3) -> bool:
         if not self.token or not self.chat_id:
-            logger.warning("Telegram not configured – skipping message.")
+            logger.warning("Telegram not configured – skipping.")
             return False
-
         bot = await self._get_bot()
         for attempt in range(1, retries + 1):
             try:
@@ -139,14 +117,9 @@ class TelegramNotifier:
                 )
                 return True
             except Exception as exc:
-                err = str(exc)
-                logger.warning(
-                    "Telegram send attempt %d/%d failed: %s", attempt, retries, err
-                )
+                logger.warning("Telegram attempt %d/%d: %s", attempt, retries, exc)
                 if attempt < retries:
                     await asyncio.sleep(2 ** attempt)
-
-        logger.error("Failed to send Telegram message after %d attempts.", retries)
         return False
 
 
@@ -164,10 +137,23 @@ def _format_job_message(job: Job) -> str:
     ]
 
     if job.posted_date:
-        lines.append(f"📅 <b>Tarih:</b> {_h(job.posted_date)}")
+        lines.append(f"📅 <b>İlan Tarihi:</b> {_h(job.posted_date)}")
+
+    if job.deadline:
+        lines.append(f"⏰ <b>Son Başvuru:</b> <b>{_h(job.deadline)}</b>")
+
+    if job.start_date:
+        lines.append(f"🗓 <b>Başvuru Başlangıç:</b> {_h(job.start_date)}")
 
     if job.category and job.category != "other":
         lines.append(f"🏷 <b>Kategori:</b> {_h(job.category.capitalize())}")
+
+    if job.requirements:
+        # Show only first 200 chars of requirements
+        req_preview = job.requirements[:200].strip()
+        if len(job.requirements) > 200:
+            req_preview += "…"
+        lines.append(f"\n📋 <b>Aranan Nitelikler:</b>\n<i>{_h(req_preview)}</i>")
 
     if job.url:
         lines.append(f"\n🔗 <a href=\"{job.url}\">Başvur / Apply</a>")
@@ -176,10 +162,11 @@ def _format_job_message(job: Job) -> str:
 
 
 def _h(text: str) -> str:
-    """Escape HTML special characters for Telegram HTML parse mode."""
+    """HTML-escape for Telegram parse_mode='HTML'."""
     return (
-        text.replace("&", "&amp;")
-            .replace("<", "&lt;")
-            .replace(">", "&gt;")
-            .replace('"', "&quot;")
+        str(text)
+        .replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace('"', "&quot;")
     )
