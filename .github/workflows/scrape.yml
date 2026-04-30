@@ -2,8 +2,8 @@ name: Staj Duyuru Bot
 
 on:
   schedule:
-    # Every hour, 06:00–23:00 Turkey time (UTC+3 → UTC 03:00–20:00)
-    - cron: "0 3-20 * * *"
+    # Every 5 hours: 06:00, 11:00, 16:00, 21:00 Turkey time (UTC+3 → 03,08,13,18 UTC)
+    - cron: "0 3,8,13,18 * * *"
   workflow_dispatch:   # manual trigger from GitHub UI
     inputs:
       mode:
@@ -16,7 +16,7 @@ on:
 jobs:
   run-bot:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
 
     steps:
       - name: Checkout
@@ -32,6 +32,9 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install -r requirements.txt
+
+      - name: Install Playwright system dependencies
+        run: sudo apt-get install -y libasound2t64 || true
 
       - name: Install Playwright browsers
         run: playwright install chromium --with-deps
