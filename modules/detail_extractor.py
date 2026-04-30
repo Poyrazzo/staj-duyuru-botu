@@ -35,11 +35,17 @@ DATE_PATTERNS = [
 
 DEADLINE_LABELS = [
     r"son\s*başvuru\s*(?:tarihi)?[:\s]*",
-    r"başvuru\s*bitiş[:\s]*",
+    r"başvuru\s*bitiş\s*(?:tarihi)?[:\s]*",
+    r"başvuru\s*son\s*(?:tarihi)?[:\s]*",
     r"application\s*deadline[:\s]*",
     r"closing\s*date[:\s]*",
     r"apply\s*by[:\s]*",
     r"son\s*tarih[:\s]*",
+    r"deadline[:\s]*",
+    r"bitiş\s*tarihi[:\s]*",
+    r"ilan\s*bitiş[:\s]*",
+    r"valid\s*(?:until|through)[:\s]*",
+    r"expires?[:\s]*",
 ]
 
 START_DATE_LABELS = [
@@ -48,16 +54,24 @@ START_DATE_LABELS = [
     r"başvuru\s*başlangıç[:\s]*",
     r"program\s*başlangıç[:\s]*",
     r"staj\s*başlangıç[:\s]*",
+    r"staj\s*tarihi[:\s]*",
+    r"program\s*tarihi[:\s]*",
 ]
 
 REQUIREMENTS_LABELS = [
     r"aranan\s*nitelikler?",
+    r"aradığımız\s*(?:nitelikler?|özellikler?|profil)",
     r"gereksinimler?",
     r"requirements?",
     r"qualifications?",
     r"başvuru\s*koşulları",
     r"biz\s*kimlerle\s*çalışmak\s*istiyoruz",
-    r"aradığımız\s*özellikler?",
+    r"kimler\s*başvurabilir",
+    r"hangi\s*özellikleri",
+    r"tercih\s*(?:nedenleri|edilen)",
+    r"what\s*we'?re?\s*looking\s*for",
+    r"what\s*you'?ll?\s*need",
+    r"who\s*you\s*are",
 ]
 
 # Title phrases that confirm this is internship (not full-time)

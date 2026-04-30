@@ -76,6 +76,15 @@ class BaseScraper(abc.ABC):
                      "ilan", "job", "kariyer", "position", "pozisyon"}
         path_kw   = {"/ilan", "/job", "/staj", "/intern", "/pozisyon",
                      "/position", "/kariyer", "/program"}
+        # Generic navigation/section titles that are NOT job listings
+        nav_blocklist = {
+            "staj ilanları", "online staj programları", "ücretsiz cv hazırlama",
+            "kişisel gelişim programı", "sertifika programları", "yetenek programları",
+            "aday girişi", "tüm ilanlar", "tümünü gör", "tümünü incele",
+            "daha fazla", "hepsini gör", "başvuru yap", "iş ilanları",
+            "kariyer fırsatları", "haftanın staj ilanları", "staj seferberliğine katıl",
+            "online staj", "staja başla", "ilanları gör", "tüm staj ilanları",
+        }
         try:
             links = await page.query_selector_all("a[href]")
         except Exception:
@@ -87,7 +96,10 @@ class BaseScraper(abc.ABC):
             try:
                 href = (await link.get_attribute("href") or "").strip()
                 text = (await link.inner_text()).strip()
-                if not text or len(text) < 5 or len(text) > 300:
+                # Title must look like a real job posting, not a nav label
+                if not text or len(text) < 20 or len(text) > 300:
+                    continue
+                if text.lower() in nav_blocklist:
                     continue
                 url = (
                     href if href.startswith("http")

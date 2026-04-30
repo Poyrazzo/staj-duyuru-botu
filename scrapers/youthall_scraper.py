@@ -183,8 +183,10 @@ class YouthallScraper(BaseScraper):
             posted_raw = item.get("created_at") or item.get("published_at") or ""
             posted_date = posted_raw[:10] if posted_raw else None
 
-            if not title or not company or not url:
+            if not title or not url:
                 return None
+            if not company:
+                company = "Bilinmiyor"
 
             return Job(
                 title=title,

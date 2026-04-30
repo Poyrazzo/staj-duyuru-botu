@@ -12,9 +12,12 @@ from .base_scraper import BaseScraper, ScraperError
 
 logger = logging.getLogger(__name__)
 
+# vizyonergenc.com redirected to savunmakariyer.com (defense-only) in 2025
+# Keeping the scraper shell — returns empty until a replacement URL is configured
 BASE_URL = "https://vizyonergenc.com"
 STAJ_URL = "https://vizyonergenc.com/staj-ilanlari"
 PROGRAM_URL = "https://vizyonergenc.com/yetenek-programlari"
+_SITE_DEAD = True
 
 
 class VizyonerGencScraper(BaseScraper):
@@ -22,6 +25,9 @@ class VizyonerGencScraper(BaseScraper):
 
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=2, min=8, max=40), reraise=True)
     async def scrape(self) -> list[Job]:
+        if _SITE_DEAD:
+            self.logger.info("Vizyoner Genç: site redirects to defense-only domain, skipping.")
+            return []
         self.logger.info("Scraping Vizyoner Genç …")
         try:
             from playwright.async_api import async_playwright

@@ -13,22 +13,23 @@ from .base_scraper import BaseScraper, ScraperError
 logger = logging.getLogger(__name__)
 
 BASE_URL = "https://toptalent.co"
-INTERN_URL = "https://toptalent.co/tr/ilanlar/?type=internship&sort=newest"
-TALENT_URL = "https://toptalent.co/tr/ilanlar/?type=talent_program&sort=newest"
+# Verified URLs — the /tr/ilanlar/ path returns 404
+INTERN_URL = "https://toptalent.co/is-ilanlari/staj-ilanlari"
+TALENT_URL = "https://toptalent.co/is-ilanlari/yetenek-programlari"
 
-CARD_SELECTORS = [
-    # React/CSS-module patterns
-    "div[class*='JobListItem']", "div[class*='JobCard']",
-    "div[class*='PositionCard']", "div[class*='ListingCard']",
-    "div[class*='job-card']", "div[class*='job-item']",
-    # Data attributes
-    "[data-cy*='job']", "[data-testid*='job']",
-    # Semantic / generic
-    "article[class*='job']", "li[class*='job']",
-    "article", "li.job-listing",
-    # Broad — last resort before harvest
-    "main ul li", "main section article",
-]
+# DOM structure (verified May 2025):
+# Each job is <a class="position" href="/slug"> wrapping a <div class="card">
+# Title:   .card-title  (h5)
+# Company+Location: first <p> inside .card-body  e.g. "Byqee Tüm Türkiye"
+# Deadline: second <p> inside .card-body  e.g. "Son 40 Gün\nBaşvur"
+CARD_SEL = "a.position"
+
+# Known Turkish city / region names to split company from location
+_LOCATION_TOKENS = {
+    "tüm türkiye", "istanbul", "İstanbul", "ankara", "İzmir", "izmir",
+    "bursa", "antalya", "kocaeli", "anadolu", "avrupa", "remote", "uzaktan",
+    "hibrit", "hybrid", "online", "türkiye",
+}
 
 
 class ToptalentScraper(BaseScraper):
@@ -64,63 +65,66 @@ class ToptalentScraper(BaseScraper):
                 await context.close()
                 await browser.close()
 
-        self.logger.info("Toptalent: %d listings.", len(all_jobs))
-        return all_jobs
+        # Deduplicate
+        seen: set[str] = set()
+        unique = []
+        for j in all_jobs:
+            if j.url not in seen:
+                seen.add(j.url)
+                unique.append(j)
+
+        self.logger.info("Toptalent: %d listings.", len(unique))
+        return unique
 
     async def _scrape_url(self, page, url: str) -> list[Job]:
-        jobs: list[Job] = []
         try:
             await page.goto(url, wait_until="networkidle", timeout=40_000)
-            await self.random_sleep(2, 4)
+            await self.random_sleep(2, 3)
             for _ in range(4):
                 await page.evaluate("window.scrollBy(0, window.innerHeight)")
-                import asyncio; await asyncio.sleep(1)
+                import asyncio; await asyncio.sleep(0.8)
         except Exception as exc:
             self.logger.warning("Toptalent nav error: %s", exc)
             return []
 
-        cards = []
-        for sel in CARD_SELECTORS:
-            found = await page.query_selector_all(sel)
-            if found and len(found) > 1:
-                cards = found
-                break
-
-        for card in cards:
+        cards = await page.query_selector_all(CARD_SEL)
+        jobs = []
+        for card in cards[:config.MAX_JOBS_PER_SOURCE]:
             job = await self._parse_card(card)
             if job:
                 jobs.append(job)
 
         if not jobs:
-            fallback = await self.harvest_job_links(page, self.source_name, BASE_URL)
-            jobs.extend(fallback)
+            jobs = await self.harvest_job_links(page, self.source_name, BASE_URL)
 
         return jobs
 
     async def _parse_card(self, card) -> Job | None:
         try:
-            title_el = await card.query_selector("h2, h3, [class*='title'], [class*='position']")
-            title = (await title_el.inner_text()).strip() if title_el else ""
-
-            company_el = await card.query_selector("[class*='company'], [class*='employer']")
-            company = (await company_el.inner_text()).strip() if company_el else ""
-
-            location_el = await card.query_selector("[class*='location'], [class*='city']")
-            location = (await location_el.inner_text()).strip() if location_el else "Türkiye"
-
-            date_el = await card.query_selector("[class*='date'], time")
-            date_str = (await date_el.inner_text()).strip() if date_el else None
-            posted_date = _parse_date(date_str)
-
-            deadline_el = await card.query_selector("[class*='deadline'], [class*='son-basvuru']")
-            deadline = (await deadline_el.inner_text()).strip() if deadline_el else None
-
-            link_el = await card.query_selector("a[href]")
-            href = (await link_el.get_attribute("href") or "").strip() if link_el else ""
+            # URL is on the <a class="position"> element itself
+            href = (await card.get_attribute("href") or "").strip()
             url = href if href.startswith("http") else f"{BASE_URL}{href}" if href else ""
-
-            if not title or not company:
+            if not url:
                 return None
+
+            title_el = await card.query_selector(".card-title, h5, h4, h3")
+            title = (await title_el.inner_text()).strip() if title_el else ""
+            if not title:
+                return None
+
+            # First <p> has "Company Location" merged in one string
+            ps = await card.query_selector_all("p")
+            company = "Bilinmiyor"
+            location = "Türkiye"
+            deadline = None
+
+            if ps:
+                company_loc = (await ps[0].inner_text()).strip()
+                company, location = _split_company_location(company_loc)
+
+            if len(ps) > 1:
+                deadline_raw = (await ps[1].inner_text()).strip()
+                deadline = _parse_deadline(deadline_raw)
 
             return Job(
                 title=title,
@@ -128,7 +132,6 @@ class ToptalentScraper(BaseScraper):
                 location=location,
                 source=self.source_name,
                 url=url,
-                posted_date=posted_date,
                 deadline=deadline,
             )
         except Exception as exc:
@@ -136,7 +139,21 @@ class ToptalentScraper(BaseScraper):
             return None
 
 
-def _parse_date(raw: str | None) -> str | None:
+def _split_company_location(text: str) -> tuple[str, str]:
+    """Split 'Byqee Tüm Türkiye' → ('Byqee', 'Tüm Türkiye')."""
+    text = text.strip()
+    lower = text.lower()
+    for loc in sorted(_LOCATION_TOKENS, key=len, reverse=True):
+        idx = lower.find(loc.lower())
+        if idx > 0:
+            company = text[:idx].strip().rstrip(",").strip()
+            location = text[idx:].strip()
+            if company:
+                return company, location
+    return text, "Türkiye"
+
+
+def _parse_deadline(raw: str) -> str | None:
     if not raw:
         return None
     raw = raw.strip()

@@ -124,7 +124,7 @@ GREENHOUSE_COMPANIES: dict[str, str] = {
 }
 
 LEVER_COMPANIES: dict[str, str] = {
-    # Add as confirmed
+    "Trendyol": "trendyol",  # Verified — uses Lever, has intern listings
 }
 
 # ═══════════════════════════════════════════════════════════════
