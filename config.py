@@ -146,11 +146,8 @@ _ORIGINAL_COMPANIES: list[CompanyConfig] = [
         intern_url="https://jobs.trendyol.com/?department=Intern",
         extra_urls=["https://jobs.trendyol.com/?query=staj"],
     ),
-    CompanyConfig(
-        name="Getir",
-        careers_url="https://getir.com/en/careers/",
-        intern_url="https://getir.com/en/careers/?department=Internship",
-    ),
+    # Getir blocks all scrapers (403) — removed
+
     CompanyConfig(
         name="Hepsiburada",
         careers_url="https://ik.hepsiburada.com/",
@@ -158,8 +155,8 @@ _ORIGINAL_COMPANIES: list[CompanyConfig] = [
     ),
     CompanyConfig(
         name="Baykar",
-        careers_url="https://www.baykarsavunma.com/kariyer.html",
-        intern_url="https://www.baykarsavunma.com/kariyer.html",
+        careers_url="https://baykartech.com/tr/",
+        intern_url="https://baykartech.com/tr/",
         search_keyword="staj",
     ),
     CompanyConfig(
@@ -192,19 +189,18 @@ _ORIGINAL_COMPANIES: list[CompanyConfig] = [
     ),
     CompanyConfig(
         name="Akbank",
-        careers_url="https://www.akbank.com/kariyer",
-        intern_url="https://www.akbank.com/kariyer/staj",
-        extra_urls=["https://genclikakademisi.akbank.com/"],
+        careers_url="https://akbank.wd3.myworkdayjobs.com/Akbank_Careers",
+        intern_url="https://akbank.wd3.myworkdayjobs.com/Akbank_Careers?q=staj",
     ),
     CompanyConfig(
         name="Garanti BBVA",
-        careers_url="https://www.garantibbva.com.tr/kariyer",
-        intern_url="https://www.garantibbva.com.tr/kariyer/staj-programlari",
+        careers_url="https://www.garantibbva.com.tr/yetenek-ve-kultur/deneyim-programlarimiz",
+        intern_url="https://garantibbva.wd3.myworkdayjobs.com/Kariyer?q=staj",
     ),
     CompanyConfig(
         name="Türkiye İş Bankası",
-        careers_url="https://www.isbank.com.tr/kariyer",
-        intern_url="https://www.isbank.com.tr/kariyer/staj-programlari",
+        careers_url="https://isbank.wd3.myworkdayjobs.com/IsBank_Ext",
+        intern_url="https://isbank.wd3.myworkdayjobs.com/IsBank_Ext?q=staj",
     ),
     CompanyConfig(
         name="Şişecam",
@@ -218,18 +214,19 @@ _ORIGINAL_COMPANIES: list[CompanyConfig] = [
     ),
     CompanyConfig(
         name="Ziraat Bankası",
-        careers_url="https://www.ziraatbank.com.tr/kariyer",
-        intern_url="https://www.ziraatbank.com.tr/kariyer/staj",
+        careers_url="https://www.ziraatbank.com.tr/tr/kurumsal/kariyer",
+        intern_url="https://www.ziraatbank.com.tr/tr/kurumsal/kariyer",
+        search_keyword="staj",
     ),
     CompanyConfig(
         name="Halkbank",
-        careers_url="https://www.halkbank.com.tr/kariyer",
-        intern_url="https://www.halkbank.com.tr/kariyer/staj",
+        careers_url="https://halkbank.wd3.myworkdayjobs.com/HalkBank",
+        intern_url="https://halkbank.wd3.myworkdayjobs.com/HalkBank?q=staj",
     ),
     CompanyConfig(
         name="VakıfBank",
-        careers_url="https://www.vakifbank.com.tr/kariyer",
-        intern_url="https://www.vakifbank.com.tr/kariyer/staj",
+        careers_url="https://vakifbank.wd3.myworkdayjobs.com/VakifBank",
+        intern_url="https://vakifbank.wd3.myworkdayjobs.com/VakifBank?q=staj",
     ),
 ]
 
@@ -264,8 +261,8 @@ _TURKISH_COMPANIES: list[CompanyConfig] = [
     CompanyConfig(
         name="Pegasus",
         careers_url="https://www.flypgs.com/kariyer",
-        intern_url="https://www.flypgs.com/kariyer/staj",
-        extra_urls=["https://career.flypgs.com/"],
+        intern_url="https://www.flypgs.com/kariyer",
+        search_keyword="staj",
     ),
     CompanyConfig(
         name="Ford Otosan",
@@ -280,8 +277,8 @@ _TURKISH_COMPANIES: list[CompanyConfig] = [
     ),
     CompanyConfig(
         name="Toyota Türkiye",
-        careers_url="https://www.toyota.com.tr/kariyer",
-        intern_url="https://www.toyota.com.tr/kariyer/staj",
+        careers_url="https://www.toyota-tr.com/kariyer",
+        intern_url="https://www.toyota-tr.com/kariyer/staj",
     ),
     CompanyConfig(
         name="Hyundai Assan",
@@ -337,7 +334,8 @@ _TURKISH_COMPANIES: list[CompanyConfig] = [
     CompanyConfig(
         name="Abdi İbrahim",
         careers_url="https://www.abdiibrahim.com.tr/kariyer",
-        intern_url="https://www.abdiibrahim.com.tr/kariyer/staj",
+        intern_url="https://www.abdiibrahim.com.tr/kariyer",
+        search_keyword="staj",
     ),
     CompanyConfig(
         name="Nobel İlaç",
@@ -349,11 +347,8 @@ _TURKISH_COMPANIES: list[CompanyConfig] = [
         careers_url="https://www.santafarma.com.tr/kariyer",
         intern_url="https://www.santafarma.com.tr/kariyer/staj",
     ),
-    CompanyConfig(
-        name="İSO Staj",
-        careers_url="https://staj.iso.org.tr/",
-        intern_url="https://staj.iso.org.tr/",
-    ),
+    # İSO Staj (staj.iso.org.tr) returns 404 — removed
+
 ]
 
 # ── International / multinational companies with Turkey offices ──
@@ -399,7 +394,7 @@ _INTERNATIONAL_COMPANIES: list[CompanyConfig] = [
     CompanyConfig(
         name="Bosch Turkey",
         careers_url="https://www.bosch.com.tr/kariyer/",
-        intern_url="https://www.bosch.com.tr/kariyer/staj/",
+        intern_url="https://www.bosch.com.tr/kariyer/oegrenciler-ve-mezunlar/",
         extra_urls=["https://jobs.smartrecruiters.com/BoschGroup?keyword=intern&location=Turkey"],
         search_keyword="staj",
     ),
@@ -533,12 +528,11 @@ COMPANY_CONFIGS: list[CompanyConfig] = (
 # ═══════════════════════════════════════════════════════════════
 GOOGLE_SEARCH_DOMAINS: list[str] = [
     # Turkish job boards
-    "youthall.com", "toptalent.co", "vizyonergenc.com",
-    "kariyerkapisi.cbiko.gov.tr", "secretcv.com", "yenibis.com",
-    "co-matching.com", "staj.iso.org.tr",
+    "youthall.com", "toptalent.co",
+    "kariyerkapisi.cbiko.gov.tr", "secretcv.com",
     # Turkish conglomerates
     "koc.com.tr", "koccareers.com.tr", "sabanci.com", "eczacibasi.com.tr",
-    "anadolugrubu.com.tr", "yildizholding.com.tr", "baykarsavunma.com",
+    "anadolugrubu.com.tr", "yildizholding.com.tr", "baykartech.com",
     "sisecam.com", "hayat.com.tr", "eti.com.tr",
     # Banks & insurance
     "akbank.com", "garantibbva.com.tr", "isbank.com.tr",
@@ -549,7 +543,7 @@ GOOGLE_SEARCH_DOMAINS: list[str] = [
     "nobelilac.com.tr", "santafarma.com.tr",
     # Airlines & automotive
     "thy.com", "flypgs.com", "fordotosan.com.tr", "borusan.com",
-    "toyota.com.tr", "hyundaiassan.com.tr", "man.com.tr",
+    "toyota-tr.com", "hyundaiassan.com.tr", "man.com.tr",
     # Materials & industry
     "kastamonuintegrated.com", "yildizentegre.com", "bekolite.com.tr",
     # International tech
