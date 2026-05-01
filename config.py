@@ -138,126 +138,14 @@ class CompanyConfig:
     search_keyword: str = "staj"
     extra_urls: list[str] = field(default_factory=list)
 
-# ── Original 16 companies ─────────────────────────────────────
+# ── Original companies — only verified globally accessible URLs ───────────────
 _ORIGINAL_COMPANIES: list[CompanyConfig] = [
-    CompanyConfig(
-        name="Trendyol",
-        careers_url="https://jobs.trendyol.com/",
-        intern_url="https://jobs.trendyol.com/?department=Intern",
-        extra_urls=["https://jobs.trendyol.com/?query=staj"],
-    ),
-    # Getir blocks all scrapers (403) — removed
-
-    CompanyConfig(
-        name="Hepsiburada",
-        careers_url="https://ik.hepsiburada.com/",
-        intern_url="https://ik.hepsiburada.com/?keyword=staj",
-    ),
-    CompanyConfig(
-        name="Baykar",
-        careers_url="https://baykartech.com/tr/",
-        intern_url="https://baykartech.com/tr/",
-        search_keyword="staj",
-    ),
-    CompanyConfig(
-        name="Koç",
-        careers_url="https://www.koccareers.com.tr/",
-        intern_url="https://www.koccareers.com.tr/staj",
-        extra_urls=["https://www.koc.com.tr/kariyer/staj-programlari"],
-    ),
-    CompanyConfig(
-        name="Sabancı",
-        careers_url="https://kariyer.sabanci.com/",
-        intern_url="https://kariyer.sabanci.com/staj",
-    ),
-    CompanyConfig(
-        name="Eczacıbaşı",
-        careers_url="https://kariyer.eczacibasi.com.tr/",
-        intern_url="https://kariyer.eczacibasi.com.tr/?type=staj",
-    ),
-    CompanyConfig(
-        name="Anadolu Grubu",
-        careers_url="https://kariyer.anadolugrubu.com.tr/",
-        intern_url="https://kariyer.anadolugrubu.com.tr/staj",
-        extra_urls=["https://www.efes.com/kariyer", "https://www.cciturkey.com/kariyer"],
-    ),
-    CompanyConfig(
-        name="Yıldız Holding",
-        careers_url="https://kariyer.yildizholding.com.tr/",
-        intern_url="https://kariyer.yildizholding.com.tr/staj",
-        extra_urls=["https://jobs.pladis.com/?search=intern"],
-    ),
-    CompanyConfig(
-        name="Akbank",
-        careers_url="https://akbank.wd3.myworkdayjobs.com/Akbank_Careers",
-        intern_url="https://akbank.wd3.myworkdayjobs.com/Akbank_Careers?q=staj",
-    ),
-    CompanyConfig(
-        name="Garanti BBVA",
-        careers_url="https://www.garantibbva.com.tr/yetenek-ve-kultur/deneyim-programlarimiz",
-        intern_url="https://garantibbva.wd3.myworkdayjobs.com/Kariyer?q=staj",
-    ),
-    CompanyConfig(
-        name="Türkiye İş Bankası",
-        careers_url="https://isbank.wd3.myworkdayjobs.com/IsBank_Ext",
-        intern_url="https://isbank.wd3.myworkdayjobs.com/IsBank_Ext?q=staj",
-    ),
-    CompanyConfig(
-        name="Şişecam",
-        careers_url="https://kariyer.sisecam.com/",
-        intern_url="https://kariyer.sisecam.com/?type=staj",
-    ),
-    CompanyConfig(
-        name="Yapı Kredi",
-        careers_url="https://kariyer.yapikredi.com.tr/",
-        intern_url="https://kariyer.yapikredi.com.tr/staj",
-    ),
-    CompanyConfig(
-        name="Ziraat Bankası",
-        careers_url="https://www.ziraatbank.com.tr/tr/kurumsal/kariyer",
-        intern_url="https://www.ziraatbank.com.tr/tr/kurumsal/kariyer",
-        search_keyword="staj",
-    ),
-    CompanyConfig(
-        name="Halkbank",
-        careers_url="https://halkbank.wd3.myworkdayjobs.com/HalkBank",
-        intern_url="https://halkbank.wd3.myworkdayjobs.com/HalkBank?q=staj",
-    ),
-    CompanyConfig(
-        name="VakıfBank",
-        careers_url="https://vakifbank.wd3.myworkdayjobs.com/VakifBank",
-        intern_url="https://vakifbank.wd3.myworkdayjobs.com/VakifBank?q=staj",
-    ),
+    # Banks/conglomerates with inaccessible career pages removed.
+    # They post on Toptalent/Youthall/LinkedIn instead.
 ]
 
-# ── New Turkish companies ─────────────────────────────────────
+# ── Turkish companies with globally accessible career pages ───────────────────
 _TURKISH_COMPANIES: list[CompanyConfig] = [
-    CompanyConfig(
-        name="Hayat Kimya",
-        careers_url="https://www.hayat.com.tr/kariyer",
-        intern_url="https://www.hayat.com.tr/kariyer/staj",
-    ),
-    CompanyConfig(
-        name="Eti",
-        careers_url="https://www.eticareer.com/",
-        intern_url="https://www.eticareer.com/?type=staj",
-        extra_urls=["https://www.eti.com.tr/kariyer"],
-    ),
-    CompanyConfig(
-        name="Sütaş",
-        careers_url="https://www.sutasgroup.com/kariyer",
-        intern_url="https://www.sutasgroup.com/kariyer/staj",
-    ),
-    CompanyConfig(
-        name="THY Take-Off Jr",
-        careers_url="https://www.thy.com/kariyer",
-        intern_url="https://www.thy.com/kariyer/staj-programlari",
-        extra_urls=[
-            "https://career.turkishairlines.com/",
-            "https://www.thy.com/tr-TR/kurumsal/kariyer/staj",
-        ],
-        search_keyword="staj",
-    ),
     CompanyConfig(
         name="Pegasus",
         careers_url="https://www.flypgs.com/kariyer",
@@ -273,7 +161,6 @@ _TURKISH_COMPANIES: list[CompanyConfig] = [
         name="Borusan Otomotiv",
         careers_url="https://www.borusan.com/kariyer",
         intern_url="https://www.borusan.com/kariyer/staj",
-        extra_urls=["https://kariyer.borusan.com/"],
     ),
     CompanyConfig(
         name="Toyota Türkiye",
@@ -281,55 +168,16 @@ _TURKISH_COMPANIES: list[CompanyConfig] = [
         intern_url="https://www.toyota-tr.com/kariyer/staj",
     ),
     CompanyConfig(
-        name="Hyundai Assan",
-        careers_url="https://www.hyundaiassan.com.tr/kariyer",
-        intern_url="https://www.hyundaiassan.com.tr/kariyer/staj",
-    ),
-    CompanyConfig(
-        name="MAN Türkiye",
-        careers_url="https://www.man.com.tr/kariyer",
-        intern_url="https://www.man.com.tr/kariyer/staj",
-    ),
-    CompanyConfig(
-        name="Kastamonu Entegre",
-        careers_url="https://www.kastamonuintegrated.com/kariyer",
-        intern_url="https://www.kastamonuintegrated.com/kariyer/staj",
-    ),
-    CompanyConfig(
-        name="Yıldız Entegre",
-        careers_url="https://www.yildizentegre.com/kariyer",
-        intern_url="https://www.yildizentegre.com/kariyer/staj",
-    ),
-    CompanyConfig(
-        name="Filli Boya / Betek",
-        careers_url="https://www.bekolite.com.tr/kariyer",
-        intern_url="https://www.bekolite.com.tr/kariyer/staj",
-        extra_urls=["https://www.filliboya.com.tr/kariyer"],
-    ),
-    CompanyConfig(
-        name="Türkiye Sigorta",
-        careers_url="https://www.turkiyesigorta.com.tr/kariyer",
-        intern_url="https://www.turkiyesigorta.com.tr/kariyer/staj",
-    ),
-    CompanyConfig(
-        name="Allianz Türkiye",
-        careers_url="https://www.allianz.com.tr/kariyer",
-        intern_url="https://www.allianz.com.tr/kariyer/staj",
-    ),
-    CompanyConfig(
         name="AXA Sigorta",
-        careers_url="https://www.axa.com.tr/kariyer",
-        intern_url="https://www.axa.com.tr/kariyer/staj",
+        careers_url="https://axa.taleo.net/careersection/ax/jobsearch.ftl?lang=en&location=Turkey",
+        intern_url="https://axa.taleo.net/careersection/ax/jobsearch.ftl?lang=en&location=Turkey&keyword=intern",
+        search_keyword="intern",
     ),
     CompanyConfig(
-        name="Anadolu Efes",
-        careers_url="https://www.efes.com/kariyer",
-        intern_url="https://www.efes.com/kariyer/staj",
-    ),
-    CompanyConfig(
-        name="Mey|Diageo",
-        careers_url="https://www.mey.com.tr/kariyer",
-        intern_url="https://www.mey.com.tr/kariyer/staj",
+        name="Diageo Türkiye",
+        careers_url="https://www.diageoturkiye.com/kariyer",
+        intern_url="https://www.diageoturkiye.com/kariyer",
+        search_keyword="staj",
     ),
     CompanyConfig(
         name="Abdi İbrahim",
@@ -337,18 +185,6 @@ _TURKISH_COMPANIES: list[CompanyConfig] = [
         intern_url="https://www.abdiibrahim.com.tr/kariyer",
         search_keyword="staj",
     ),
-    CompanyConfig(
-        name="Nobel İlaç",
-        careers_url="https://www.nobelilac.com.tr/kariyer",
-        intern_url="https://www.nobelilac.com.tr/kariyer/staj",
-    ),
-    CompanyConfig(
-        name="Santa Farma",
-        careers_url="https://www.santafarma.com.tr/kariyer",
-        intern_url="https://www.santafarma.com.tr/kariyer/staj",
-    ),
-    # İSO Staj (staj.iso.org.tr) returns 404 — removed
-
 ]
 
 # ── International / multinational companies with Turkey offices ──
