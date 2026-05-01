@@ -11,7 +11,7 @@ TELEGRAM_BOT_TOKEN: str = os.getenv("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID: str = os.getenv("TELEGRAM_CHAT_ID", "")
 
 # ── Scraper behaviour ─────────────────────────────────────────
-RUN_INTERVAL_MINUTES: int = int(os.getenv("RUN_INTERVAL_MINUTES", "60"))
+RUN_INTERVAL_MINUTES: int = int(os.getenv("RUN_INTERVAL_MINUTES", "180"))
 MAX_JOBS_PER_SOURCE: int = int(os.getenv("MAX_JOBS_PER_SOURCE", "50"))
 HEADLESS: bool = os.getenv("HEADLESS", "true").lower() == "true"
 LOOKBACK_DAYS: int = int(os.getenv("LOOKBACK_DAYS", "1"))

@@ -2,8 +2,8 @@ name: Staj Duyuru Bot
 
 on:
   schedule:
-    # Every 5 hours: 06:00, 11:00, 16:00, 21:00 Turkey time (UTC+3 → 03,08,13,18 UTC)
-    - cron: "0 3,8,13,18 * * *"
+    # Every 3 hours (UTC); Turkey time runs at 00:00, 03:00, 06:00, 09:00, 12:00, 15:00, 18:00, 21:00.
+    - cron: "0 */3 * * *"
   workflow_dispatch:   # manual trigger from GitHub UI
     inputs:
       mode:

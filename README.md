@@ -1,6 +1,6 @@
 # 🤖 Staj Duyuru Botu
 
-**LinkedIn, Kariyer.net ve Youthall'u her saat otomatik olarak tarayan, yeni staj ilanlarını anında Telegram'a bildiren bot.**
+**LinkedIn, Kariyer.net ve Youthall'u her 3 saatte bir otomatik olarak tarayan, yeni staj ilanlarını anında Telegram'a bildiren bot.**
 ---
 
 Her yeni staj ilanı için Telegram'a şöyle bir mesaj gelir:
@@ -22,7 +22,7 @@ Her yeni staj ilanı için Telegram'a şöyle bir mesaj gelir:
 
 ## ⚙️ Nasıl Çalışır?
 
-1. Her saat LinkedIn, Kariyer.net ve Youthall'u tarar
+1. Her 3 saatte bir LinkedIn, Kariyer.net ve Youthall'u tarar
 2. "Staj", "Intern", "Genç Yetenek" gibi anahtar kelimelerle filtreler
 3. "Senior", "Manager" gibi alakasız ilanları eler
 4. Aynı ilanı iki kez göndermez (SHA-256 ile tekilleştirme)
@@ -111,7 +111,7 @@ source .venv/bin/activate
 python main.py
 ```
 
-**Sürekli çalıştır (her 60 dakikada bir):**
+**Sürekli çalıştır (her 3 saatte bir):**
 ```bash
 python main.py --loop
 ```
@@ -149,7 +149,7 @@ GitHub reposunda:
 
 Repo sayfasında **Actions** sekmesine git → **"I understand my workflows, go ahead and enable them"** butonuna bas.
 
-Artık bot her saat otomatik çalışır, Telegram'a bildirim gönderir.
+Artık bot her 3 saatte bir otomatik çalışır, Telegram'a bildirim gönderir.
 
 ---
 
@@ -159,7 +159,7 @@ Artık bot her saat otomatik çalışır, Telegram'a bildirim gönderir.
 |----------|-----------|---------|
 | `TELEGRAM_BOT_TOKEN` | — | BotFather token |
 | `TELEGRAM_CHAT_ID` | — | Bildirim gönderilecek chat |
-| `RUN_INTERVAL_MINUTES` | `60` | Çalışma aralığı (dakika) |
+| `RUN_INTERVAL_MINUTES` | `180` | Çalışma aralığı (dakika) |
 | `MAX_JOBS_PER_SOURCE` | `50` | Kaynak başına max ilan |
 | `LOOKBACK_DAYS` | `1` | Kaç günlük ilan çekilsin |
 | `HEADLESS` | `true` | `false` yaparak tarayıcıyı görsel aç |
@@ -211,7 +211,7 @@ Bot ilanları otomatik olarak kategorilere ayırır:
 ## ❓ Sık Sorulan Sorular
 
 **S: Bot ücretsiz mi çalışır?**
-E: Evet. GitHub Actions ayda 2000 dakika ücretsiz sağlar. Saatlik çalışma ~720 dakika/ay kullanır.
+E: Evet. GitHub Actions ayda 2000 dakika ücretsiz sağlar. 3 saatlik çalışma yaklaşık 240 dakika/ay kullanır.
 
 **S: Aynı ilan iki kez gelir mi?**
 H: Hayır. Her ilan SHA-256 hash ile kayıt altına alınır, bir daha gönderilmez.
@@ -220,7 +220,7 @@ H: Hayır. Her ilan SHA-256 hash ile kayıt altına alınır, bir daha gönderil
 E: Evet. Her site için yaklaşık 50–80 satır Python kodu yeterli.
 
 **S: Bot ne zaman çalışır?**
-H: GitHub Actions ile Türkiye saati 06:00–23:00 arası her saat başı.
+H: GitHub Actions ile Türkiye saati 00:00, 03:00, 06:00, 09:00, 12:00, 15:00, 18:00 ve 21:00'de.
 
 ---
 

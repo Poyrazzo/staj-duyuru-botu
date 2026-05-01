@@ -52,6 +52,9 @@ DEADLINE_SELECTORS = [
     "[class*='bitis']", "[class*='closing']",
 ]
 
+COMPANY_CONCURRENCY = 4
+COMPANY_TIMEOUT_SECONDS = 45
+
 
 class CompanyCareerScraper(BaseScraper):
     """Scrapes all company career pages defined in config.COMPANY_CONFIGS."""
@@ -72,29 +75,54 @@ class CompanyCareerScraper(BaseScraper):
 
         async with async_playwright() as pw:
             browser = await pw.chromium.launch(headless=opts["headless"])
+            semaphore = asyncio.Semaphore(COMPANY_CONCURRENCY)
 
-            for company_cfg in config.COMPANY_CONFIGS:
-                context = await browser.new_context(
-                    locale=opts["locale"], timezone_id=opts["timezone_id"],
-                    viewport=opts["viewport"], user_agent=self.random_user_agent(),
-                )
-                page = await context.new_page()
-                await stealth_async(page)
+            async def scrape_one(company_cfg: CompanyConfig) -> list[Job]:
+                async with semaphore:
+                    return await asyncio.wait_for(
+                        self._scrape_company_with_context(
+                            browser, stealth_async, opts, company_cfg
+                        ),
+                        timeout=COMPANY_TIMEOUT_SECONDS,
+                    )
 
-                try:
-                    jobs = await self._scrape_company(page, company_cfg)
-                    all_jobs.extend(jobs)
-                    self.logger.info("%s: %d jobs found.", company_cfg.name, len(jobs))
-                except Exception as exc:
-                    self.logger.error("Error scraping %s: %s", company_cfg.name, exc)
-                finally:
-                    await context.close()
-                    await self.random_sleep(2, 5)
+            results = await asyncio.gather(
+                *[scrape_one(company_cfg) for company_cfg in config.COMPANY_CONFIGS],
+                return_exceptions=True,
+            )
+
+            for company_cfg, result in zip(config.COMPANY_CONFIGS, results):
+                if isinstance(result, TimeoutError):
+                    self.logger.warning(
+                        "%s timed out after %ds.",
+                        company_cfg.name,
+                        COMPANY_TIMEOUT_SECONDS,
+                    )
+                elif isinstance(result, Exception):
+                    self.logger.error("Error scraping %s: %s", company_cfg.name, result)
+                else:
+                    all_jobs.extend(result)
+                    self.logger.info("%s: %d jobs found.", company_cfg.name, len(result))
 
             await browser.close()
 
         self.logger.info("Company pages total: %d jobs.", len(all_jobs))
         return all_jobs
+
+    async def _scrape_company_with_context(
+        self, browser, stealth_async, opts: dict, company_cfg: CompanyConfig
+    ) -> list[Job]:
+        context = await browser.new_context(
+            locale=opts["locale"], timezone_id=opts["timezone_id"],
+            viewport=opts["viewport"], user_agent=self.random_user_agent(),
+        )
+        page = await context.new_page()
+        await stealth_async(page)
+
+        try:
+            return await self._scrape_company(page, company_cfg)
+        finally:
+            await context.close()
 
     async def _scrape_company(self, page, cfg: CompanyConfig) -> list[Job]:
         jobs: list[Job] = []
@@ -120,17 +148,17 @@ class CompanyCareerScraper(BaseScraper):
 
     async def _scrape_page(self, page, url: str, cfg: CompanyConfig) -> list[Job]:
         try:
-            await page.goto(url, wait_until="domcontentloaded", timeout=35_000)
-            await self.random_sleep(2, 4)
+            await page.goto(url, wait_until="domcontentloaded", timeout=20_000)
+            await self.random_sleep(0.5, 1.0)
 
             # Try to filter by keyword if the page is just the main careers page
             if cfg.search_keyword and url == cfg.careers_url:
                 await self._try_search(page, cfg.search_keyword)
 
             # Scroll to load dynamic content
-            for _ in range(4):
+            for _ in range(2):
                 await page.evaluate("window.scrollBy(0, window.innerHeight)")
-                await asyncio.sleep(1)
+                await asyncio.sleep(0.5)
 
         except Exception as exc:
             self.logger.warning("Navigation failed for %s (%s): %s", cfg.name, url, exc)
@@ -156,7 +184,7 @@ class CompanyCareerScraper(BaseScraper):
             if inp:
                 await inp.fill(keyword)
                 await inp.press("Enter")
-                await asyncio.sleep(2)
+                await asyncio.sleep(1)
         except Exception:
             pass
 

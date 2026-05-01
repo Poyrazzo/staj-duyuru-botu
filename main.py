@@ -3,11 +3,11 @@ Staj Duyuru Botu — Main Orchestrator
 =====================================
 Sources (10 scrapers total):
 
-  FAST (API/lightweight, every hour):
+  FAST (API/lightweight, every scheduled run):
     · ATSScraper        — Greenhouse + Lever direct JSON API
     · LinkedInScraper   — JobSpy API wrapper
 
-  BROWSER (Playwright + stealth, every hour):
+  BROWSER (Playwright + stealth, every scheduled run):
     · KariyerScraper    — kariyer.net
     · YouthallScraper   — youthall.com
     · ToptalentScraper  — toptalent.co
@@ -15,7 +15,7 @@ Sources (10 scrapers total):
     · KariyerKapisiScraper — kariyerkapisi.cbiko.gov.tr
     · ExtraBoardsScraper  — SecretCV, Yenibiriş, Co-Matching, İSO Staj
 
-  COMPANY (Playwright, every hour):
+  COMPANY (Playwright, every scheduled run):
     · CompanyCareerScraper — 33 company career pages
 
   GOOGLE (CSE API, ONCE PER DAY, safety net):
