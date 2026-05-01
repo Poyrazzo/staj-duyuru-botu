@@ -33,11 +33,16 @@ jobs:
           pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Install Playwright system dependencies
-        run: sudo apt-get install -y libasound2t64 || true
-
       - name: Install Playwright browsers
-        run: playwright install chromium --with-deps
+        run: |
+          # Install chromium without --with-deps to avoid libasound2 rename issue on Ubuntu 24.04
+          playwright install chromium
+          # Install the deps that Playwright needs, using the Ubuntu 24.04 package names
+          sudo apt-get install -y \
+            libasound2t64 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 \
+            libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 \
+            libgbm1 libnss3 libpango-1.0-0 libcairo2 libx11-6 libxcb1 \
+            libxext6 libxshmfence1 fonts-liberation libvulkan1 || true
 
       - name: Restore SQLite database cache
         uses: actions/cache@v4
