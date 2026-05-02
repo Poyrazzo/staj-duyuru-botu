@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 
 GREENHOUSE_API = "https://boards-api.greenhouse.io/v1/boards/{slug}/jobs?content=true"
 LEVER_API = "https://api.lever.co/v0/postings/{slug}?mode=json"
+WORKABLE_API = "https://apply.workable.com/api/v3/accounts/{slug}/jobs"
 
 
 class ATSScraper(BaseScraper):
@@ -39,6 +40,8 @@ class ATSScraper(BaseScraper):
                 tasks.append(self._fetch_greenhouse(session, company, slug))
             for company, slug in config.LEVER_COMPANIES.items():
                 tasks.append(self._fetch_lever(session, company, slug))
+            for company, slug in config.WORKABLE_COMPANIES.items():
+                tasks.append(self._fetch_workable(session, company, slug))
 
             results = await asyncio.gather(*tasks, return_exceptions=True)
             for r in results:
@@ -132,6 +135,56 @@ class ATSScraper(BaseScraper):
                 jobs.append(job)
         logger.debug("Lever %s: %d jobs", company, len(jobs))
         return jobs
+
+    async def _fetch_workable(
+        self, session: aiohttp.ClientSession, company: str, slug: str
+    ) -> list[Job]:
+        url = WORKABLE_API.format(slug=slug)
+        try:
+            async with session.post(
+                url,
+                json={"query": "intern"},
+                timeout=aiohttp.ClientTimeout(total=30),
+            ) as resp:
+                if resp.status != 200:
+                    logger.warning("Workable %s returned HTTP %d", company, resp.status)
+                    return []
+                data = await resp.json()
+        except Exception as exc:
+            logger.warning("Workable %s fetch failed: %s", company, exc)
+            return []
+
+        jobs = []
+        for item in data.get("results", []):
+            job = self._workable_to_job(item, company)
+            if job:
+                jobs.append(job)
+        logger.debug("Workable %s: %d jobs", company, len(jobs))
+        return jobs
+
+    def _workable_to_job(self, item: dict, company: str) -> Job | None:
+        try:
+            title = item.get("title", "").strip()
+            shortcode = item.get("shortcode", "")
+            url = f"https://apply.workable.com/{company.lower()}/j/{shortcode}/" if shortcode else ""
+            if not title:
+                return None
+            location_data = item.get("location", {})
+            city = location_data.get("city", "") if isinstance(location_data, dict) else ""
+            country = location_data.get("country", "") if isinstance(location_data, dict) else ""
+            location = f"{city}, {country}".strip(", ") or "Türkiye"
+            dept = item.get("department", "") or ""
+            return Job(
+                title=title,
+                company=company,
+                location=location,
+                source=f"Workable ({company})",
+                url=url,
+                description=dept,
+            )
+        except Exception as exc:
+            logger.debug("Workable item parse error: %s", exc)
+            return None
 
     def _lever_to_job(self, item: dict, company: str) -> Job | None:
         try:

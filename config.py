@@ -6,6 +6,14 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# Load target companies list from Companies.txt
+import pathlib
+_companies_file = pathlib.Path(__file__).parent / "Companies.txt"
+COMPANIES_LIST: list[str] = []
+if _companies_file.exists():
+    raw = _companies_file.read_text(encoding="utf-8")
+    COMPANIES_LIST = [c.strip() for c in raw.replace("\n", ",").split(",") if c.strip()]
+
 # ── Telegram ─────────────────────────────────────────────────
 TELEGRAM_BOT_TOKEN: str = os.getenv("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID: str = os.getenv("TELEGRAM_CHAT_ID", "")
@@ -124,7 +132,15 @@ GREENHOUSE_COMPANIES: dict[str, str] = {
 }
 
 LEVER_COMPANIES: dict[str, str] = {
-    "Trendyol": "trendyol",  # Verified — uses Lever, has intern listings
+    "Trendyol": "trendyol",
+    "Dream Games": "dreamgames",
+    "Peak Games": "peakgames",
+    "Codeway Studios": "codeway",
+    # Insider returns 404 on Lever — covered via DDG search
+}
+
+WORKABLE_COMPANIES: dict[str, str] = {
+    "Getir": "getir",
 }
 
 # ═══════════════════════════════════════════════════════════════
