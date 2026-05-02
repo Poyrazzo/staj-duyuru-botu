@@ -1,14 +1,14 @@
-"""Youthall scraper using Playwright with stealth plugin.
+"""Youthall scraper — server-rendered Turkish internship/talent portal.
 
-Targets:
- - /tr/jobs/          → all internship/talent listings
- - Specifically looks for "Yetenek Programı" (Talent Programme) cards
-
-Youthall is a React SPA; we wait for the job cards to hydrate before parsing.
+DOM structure (verified 2026-04):
+  div.jobs > a[href=full_url] > div.jobs-body > div.jobs-content
+    h5                         → title
+    img.jobs-content-logo[alt] → "Company Name logo"  → strip " logo"
+    div.jobs-content-desc      → description snippet
+    div.jobs-content-bottom > div.jobs-tag (0=type, 1=deadline, 2=location)
 """
 
 import re
-import json
 import logging
 from datetime import datetime, timedelta
 
@@ -23,26 +23,6 @@ logger = logging.getLogger(__name__)
 BASE_URL = "https://www.youthall.com"
 JOBS_URL = f"{BASE_URL}/tr/jobs/?type=internship"
 TALENT_URL = f"{BASE_URL}/tr/jobs/?type=talent_program"
-
-CARD_SELECTORS = [
-    "div[class*='JobCard']",
-    "div[class*='job-card']",
-    "div[class*='JobItem']",
-    "div[class*='PositionCard']",
-    "article[class*='job']",
-    "li[class*='job']",
-    "div.job-list-item",
-    "[data-cy*='job']",
-    "[data-testid*='job']",
-]
-
-TITLE_SEL = "[class*='JobCard__title'], [class*='job-title'], h3, h2"
-COMPANY_SEL = "[class*='JobCard__company'], [class*='company-name'], [class*='employer']"
-LOCATION_SEL = "[class*='location'], [class*='city']"
-DATE_SEL = "[class*='date'], [class*='time'], time"
-LINK_SEL = "a"
-
-MAX_SCROLL_ATTEMPTS = 3
 
 
 class YouthallScraper(BaseScraper):
@@ -76,23 +56,15 @@ class YouthallScraper(BaseScraper):
             await stealth_async(page)
 
             try:
-                # Intercept API responses for structured data when available
-                api_jobs = await self._try_api_intercept(page, context)
-                if api_jobs:
-                    all_jobs.extend(api_jobs)
-                else:
-                    # Fallback: DOM scraping — stop after first URL that yields results
-                    for url in (JOBS_URL, TALENT_URL):
-                        jobs = await self._scrape_url(page, url)
-                        all_jobs.extend(jobs)
-                        if jobs:
-                            break
-                        await self.random_sleep(1, 2)
+                for url in (JOBS_URL, TALENT_URL):
+                    jobs = await self._scrape_url(page, url)
+                    all_jobs.extend(jobs)
+                    await self.random_sleep(1, 3)
             finally:
                 await context.close()
                 await browser.close()
 
-        # Deduplicate within this source
+        # Deduplicate by URL
         seen: set[str] = set()
         unique: list[Job] = []
         for j in all_jobs:
@@ -103,223 +75,100 @@ class YouthallScraper(BaseScraper):
         self.logger.info("Youthall: %d listings fetched.", len(unique))
         return unique
 
-    async def _try_api_intercept(self, page, context) -> list[Job]:
-        """Attempt to capture the JSON API that Youthall's React app calls."""
-        captured: list[dict] = []
-
-        async def handle_response(response):
-            try:
-                if "api" in response.url and "job" in response.url:
-                    if response.status == 200:
-                        try:
-                            data = await response.json()
-                            if isinstance(data, dict):
-                                results = (
-                                    data.get("results")
-                                    or data.get("data")
-                                    or data.get("jobs")
-                                    or []
-                                )
-                                if isinstance(results, list):
-                                    captured.extend(results)
-                        except Exception:
-                            pass
-            except Exception:
-                pass
-
-        page.on("response", handle_response)
-
+    async def _scrape_url(self, page, url: str) -> list[Job]:
         try:
-            await page.goto(JOBS_URL, wait_until="domcontentloaded", timeout=20_000)
+            await page.goto(url, wait_until="domcontentloaded", timeout=30_000)
             await self.random_sleep(2, 3)
-            await page.goto(TALENT_URL, wait_until="domcontentloaded", timeout=20_000)
-            await self.random_sleep(2, 3)
+            # Scroll to trigger lazy-loaded images / more cards
+            for _ in range(3):
+                await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+                import asyncio
+                await asyncio.sleep(1.2)
         except Exception as exc:
-            self.logger.debug("API intercept navigation failed: %s", exc)
+            self.logger.warning("Youthall nav error for %s: %s", url, exc)
             return []
 
-        if not captured:
-            return []
+        cards = await page.query_selector_all("div.jobs")
+        self.logger.debug("Youthall: found %d cards on %s", len(cards), url)
 
         jobs: list[Job] = []
-        for item in captured:
-            job = self._api_item_to_job(item)
+        for card in cards[:config.MAX_JOBS_PER_SOURCE]:
+            job = await self._parse_card(card)
             if job:
                 jobs.append(job)
+
         return jobs
 
-    def _api_item_to_job(self, item: dict) -> Job | None:
+    async def _parse_card(self, card) -> Job | None:
         try:
-            title = (
-                item.get("title")
-                or item.get("position")
-                or item.get("name", "")
-            ).strip()
-
-            company_data = item.get("company") or item.get("employer") or {}
-            if isinstance(company_data, dict):
-                company = company_data.get("name", "")
-            else:
-                company = str(company_data)
-            company = company.strip()
-
-            location = (
-                item.get("location")
-                or item.get("city")
-                or "Türkiye"
-            )
-            if isinstance(location, dict):
-                location = location.get("name", "Türkiye")
-
-            slug = item.get("slug") or item.get("id", "")
-            url = (
-                item.get("url")
-                or item.get("apply_url")
-                or (f"{BASE_URL}/tr/jobs/{slug}/" if slug else "")
-            )
-
-            description = item.get("description") or item.get("summary") or ""
-
-            posted_raw = item.get("created_at") or item.get("published_at") or ""
-            posted_date = posted_raw[:10] if posted_raw else None
-
-            if not title or not url:
+            # URL lives on the wrapping <a> tag
+            link_el = await card.query_selector("a[href]")
+            if not link_el:
                 return None
+            href = (await link_el.get_attribute("href") or "").strip()
+            job_url = href if href.startswith("http") else f"{BASE_URL}{href}" if href else ""
+            # Skip generic listing URLs
+            if not job_url or job_url.rstrip("/") in (BASE_URL, f"{BASE_URL}/tr/jobs"):
+                return None
+
+            # Title
+            title_el = await card.query_selector("div.jobs-content-title h5, div.jobs-content-title h4, div.jobs-content-title h3")
+            title = (await title_el.inner_text()).strip() if title_el else ""
+            if not title:
+                return None
+
+            # Company — from logo alt text: "AXA Sigorta logo" → "AXA Sigorta"
+            logo_el = await card.query_selector("img.jobs-content-logo")
+            company = ""
+            if logo_el:
+                alt = (await logo_el.get_attribute("alt") or "").strip()
+                company = re.sub(r"\s+logo\s*$", "", alt, flags=re.IGNORECASE).strip()
             if not company:
                 company = "Bilinmiyor"
 
-            return Job(
-                title=title,
-                company=company,
-                location=str(location),
-                source=self.source_name,
-                url=url,
-                description=str(description),
-                posted_date=posted_date,
-            )
-        except Exception as exc:
-            self.logger.debug("API item parse error: %s", exc)
-            return None
+            # Description snippet
+            desc_el = await card.query_selector("div.jobs-content-desc")
+            description = (await desc_el.inner_text()).strip() if desc_el else ""
 
-    async def _scrape_url(self, page, url: str) -> list[Job]:
-        jobs: list[Job] = []
-        try:
-            await page.goto(url, wait_until="domcontentloaded", timeout=20_000)
-            await self.random_sleep(1, 2)
-        except Exception as exc:
-            self.logger.warning("Navigation failed for %s: %s", url, exc)
-            return []
-
-        # Wait for cards to render
-        for sel in CARD_SELECTORS:
-            try:
-                await page.wait_for_selector(sel, timeout=5_000)
-                break
-            except Exception:
-                continue
-
-        # Scroll to load more cards
-        prev_count = 0
-        for _ in range(MAX_SCROLL_ATTEMPTS):
-            await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-            import asyncio
-            await asyncio.sleep(1.0)
-            cards = await self._find_cards(page)
-            if len(cards) == prev_count:
-                break
-            prev_count = len(cards)
-
-        cards = await self._find_cards(page)
-        for card in cards:
-            job = await self._parse_card(card, url)
-            if job:
-                jobs.append(job)
-
-        if not jobs:
-            fallback = await self.harvest_job_links(page, self.source_name, BASE_URL)
-            jobs.extend(fallback)
-
-        return jobs
-
-    async def _find_cards(self, page) -> list:
-        for sel in CARD_SELECTORS:
-            cards = await page.query_selector_all(sel)
-            if cards:
-                return cards
-        return []
-
-    async def _parse_card(self, card, page_url: str) -> Job | None:
-        try:
-            title = ""
-            for sel in TITLE_SEL.split(", "):
-                el = await card.query_selector(sel)
-                if el:
-                    title = (await el.inner_text()).strip()
-                    if title:
-                        break
-
-            company = ""
-            for sel in COMPANY_SEL.split(", "):
-                el = await card.query_selector(sel)
-                if el:
-                    company = (await el.inner_text()).strip()
-                    if company:
-                        break
-
+            # Tags: [0]=type, [1]=deadline, [2]=location
+            tags = await card.query_selector_all("div.jobs-content-bottom div.jobs-tag")
+            deadline = None
             location = "Türkiye"
-            for sel in LOCATION_SEL.split(", "):
-                el = await card.query_selector(sel)
-                if el:
-                    location = (await el.inner_text()).strip()
-                    if location:
-                        break
-
-            date_str = None
-            for sel in DATE_SEL.split(", "):
-                el = await card.query_selector(sel)
-                if el:
-                    raw = await el.get_attribute("datetime") or await el.inner_text()
-                    date_str = raw.strip()
-                    break
-            posted_date = _parse_youthall_date(date_str)
-
-            # Build URL from card link
-            link_el = await card.query_selector(LINK_SEL)
-            href = ""
-            if link_el:
-                href = (await link_el.get_attribute("href") or "").strip()
-            url = href if href.startswith("http") else f"{BASE_URL}{href}" if href else ""
-
-            if not title or not company:
-                return None
+            if len(tags) >= 2:
+                deadline_raw = (await tags[1].inner_text()).strip()
+                deadline = _parse_deadline(deadline_raw)
+            if len(tags) >= 3:
+                loc_raw = (await tags[2].inner_text()).strip()
+                # Clean up whitespace/icons
+                loc_raw = re.sub(r"\s+", " ", loc_raw).strip()
+                # Remove font-awesome icon characters (non-ASCII leftovers)
+                loc_raw = re.sub(r"[^\w\s,+ğüşöçıİĞÜŞÖÇ]", "", loc_raw).strip()
+                if loc_raw:
+                    location = loc_raw
 
             return Job(
                 title=title,
                 company=company,
                 location=location,
                 source=self.source_name,
-                url=url or page_url,
-                posted_date=posted_date,
+                url=job_url,
+                description=description[:300] if description else "",
+                deadline=deadline,
             )
         except Exception as exc:
-            self.logger.debug("Card parse error: %s", exc)
+            self.logger.debug("Youthall card parse error: %s", exc)
             return None
 
 
-def _parse_youthall_date(raw: str | None) -> str | None:
+def _parse_deadline(raw: str) -> str | None:
     if not raw:
         return None
     raw = raw.strip()
-    # ISO datetime
+    # "31.05.2026" format
+    match = re.search(r"(\d{1,2})[./](\d{1,2})[./](\d{4})", raw)
+    if match:
+        d, m, y = match.groups()
+        return f"{y}-{m.zfill(2)}-{d.zfill(2)}"
     if re.match(r"\d{4}-\d{2}-\d{2}", raw):
         return raw[:10]
-    if "bugün" in raw.lower() or "today" in raw.lower():
-        return datetime.utcnow().strftime("%Y-%m-%d")
-    match = re.search(r"(\d+)\s*(gün|day|saat|hour)", raw, re.IGNORECASE)
-    if match:
-        n = int(match.group(1))
-        unit = match.group(2).lower()
-        if "saat" in unit or "hour" in unit:
-            n = max(n // 24, 0)
-        return (datetime.utcnow() - timedelta(days=n)).strftime("%Y-%m-%d")
     return None

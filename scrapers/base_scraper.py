@@ -84,6 +84,8 @@ class BaseScraper(abc.ABC):
             "daha fazla", "hepsini gör", "başvuru yap", "iş ilanları",
             "kariyer fırsatları", "haftanın staj ilanları", "staj seferberliğine katıl",
             "online staj", "staja başla", "ilanları gör", "tüm staj ilanları",
+            "top100 talent program", "tüm sertifika programları",
+            "ücretsiz cv hazırlama programı", "talent programs",
         }
         try:
             links = await page.query_selector_all("a[href]")
