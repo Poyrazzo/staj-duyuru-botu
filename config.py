@@ -70,6 +70,9 @@ WHITELIST_KEYWORDS: list[str] = [
     "yaz dönemi", "yaz staj", "summer intern",
     "junior staj", "kampüs", "take-off", "takeoff",
     "graduate", "mezun aday",
+    # New-grad / entry-level aliases used by Turkish tech companies on Lever
+    "new grad", "yeni mezun", "entry level", "entry-level",
+    "long term intern", "uzun dönem staj",
 ]
 
 BLACKLIST_KEYWORDS: list[str] = [
@@ -351,26 +354,8 @@ _INTERNATIONAL_COMPANIES: list[CompanyConfig] = [
         intern_url="https://www.novartis.com/careers/career-search?search=intern&country=Turkey",
         search_keyword="intern",
     ),
-    CompanyConfig(
-        name="BASF Turkey",
-        careers_url="https://www.basf.com/global/en/careers/jobs.html?search=intern&country=TR",
-        intern_url="https://www.basf.com/global/en/careers/jobs.html?search=intern&country=TR",
-        extra_urls=["https://www.basf.com/tr/tr/who-we-are/careers.html"],
-        search_keyword="intern",
-    ),
-    CompanyConfig(
-        name="Henkel Turkey",
-        careers_url="https://www.henkel.com/careers/jobs-and-applications#q=intern&location=Turkey",
-        intern_url="https://www.henkel.com/careers/jobs-and-applications#q=intern&location=Turkey",
-        extra_urls=["https://www.henkel.com.tr/kariyer"],
-        search_keyword="intern",
-    ),
-    CompanyConfig(
-        name="Jotun Turkey",
-        careers_url="https://www.jotun.com/tr/tr/b2b/about-jotun/careers/vacancies.html",
-        intern_url="https://www.jotun.com/tr/tr/b2b/about-jotun/careers/vacancies.html",
-        search_keyword="staj",
-    ),
+    # BASF, Henkel, Jotun: direct scraping returns global/wrong results — covered by DDG
+
 ]
 
 # ── Merge all company configs ─────────────────────────────────

@@ -69,7 +69,7 @@ class GoogleScraper(BaseScraper):
     def _search_sync(self, query: str, company: str) -> list[Job]:
         try:
             with DDGS() as ddgs:
-                results = list(ddgs.text(query, max_results=10))
+                results = list(ddgs.text(query, max_results=10, timelimit="y"))
         except Exception as exc:
             logger.warning("DDG query failed for '%s': %s", company, exc)
             return []

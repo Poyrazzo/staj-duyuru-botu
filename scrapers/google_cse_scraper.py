@@ -111,7 +111,7 @@ class GoogleCSEScraper(BaseScraper):
         """Run a single DDG query (synchronous — called via executor)."""
         try:
             with DDGS() as ddgs:
-                results = list(ddgs.text(query, max_results=_RESULTS_PER))
+                results = list(ddgs.text(query, max_results=_RESULTS_PER, timelimit="y"))
         except Exception as exc:
             self.logger.warning("DDG query failed for '%s': %s", query, exc)
             return []
