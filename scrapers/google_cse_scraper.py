@@ -1,11 +1,11 @@
-"""Google Custom Search Engine scraper.
+"""DuckDuckGo search scraper — no API key, no quota limits.
+
+Replaces the Google CSE scraper. Uses the `duckduckgo-search` library
+which wraps DDG's HTML search with no authentication required.
 
 Strategy:
-  1. General whole-web queries  — broad Turkish internship searches
-  2. Targeted domain queries    — companies/sites we can't scrape directly
-
-Free quota: 100 queries/day × 10 results = 1 000 URLs max.
-We stay comfortably under that limit.
+  1. General queries  — broad Turkish internship discovery across the whole web
+  2. Domain queries   — targeted searches on companies we can't scrape directly
 """
 
 import asyncio
@@ -13,113 +13,88 @@ import logging
 import re
 from urllib.parse import urlparse
 
-import aiohttp
+try:
+    from ddgs import DDGS
+except ImportError:
+    from duckduckgo_search import DDGS
 
 import config
 from db.database import Job
-from .base_scraper import BaseScraper, ScraperError
+from .base_scraper import BaseScraper
 
 logger = logging.getLogger(__name__)
 
-_CSE_ENDPOINT = "https://www.googleapis.com/customsearch/v1"
-
-# ── General queries (whole-web) ──────────────────────────────────────────────
-# These surface listings we'd never find via targeted scraping.
+# ── General queries ──────────────────────────────────────────────────────────
 _GENERAL_QUERIES = [
     "staj ilanı 2026 başvuru",
     "yaz stajı 2026 türkiye",
     "uzun dönem staj 2026",
     "internship turkey 2026 apply",
     "yetenek programı 2026 başvuru",
-    "trainee program turkey 2026",
     "stajyer alımı 2026",
-    "graduate program türkiye 2026",
+    "trainee program türkiye 2026",
 ]
 
 # ── Domain-targeted queries ──────────────────────────────────────────────────
-# Focused on companies/sites we couldn't scrape directly (geo-blocked, ATS, etc.)
+# Companies/sites we can't reach by direct Playwright scraping
 _DOMAIN_QUERIES = [
-    # Turkish conglomerates & banks (DNS unreachable from abroad)
-    ("koc.com.tr",            "staj OR intern"),
-    ("koccareers.com.tr",     "staj OR intern"),
-    ("sabanci.com",           "staj OR intern"),
-    ("eczacibasi.com.tr",     "staj OR intern"),
-    ("anadolugrubu.com.tr",   "staj OR intern"),
-    ("yildizholding.com.tr",  "staj OR intern"),
-    ("baykartech.com",        "staj OR intern"),
-    ("sisecam.com",           "staj OR intern"),
-    ("akbank.com",            "staj OR intern"),
-    ("garantibbva.com.tr",    "staj OR intern"),
-    ("isbank.com.tr",         "staj OR intern"),
-    ("yapikredi.com.tr",      "staj OR intern"),
-    ("ziraatbank.com.tr",     "staj OR intern"),
-    ("halkbank.com.tr",       "staj OR intern"),
-    ("vakifbank.com.tr",      "staj OR intern"),
-    ("thy.com",               "staj OR intern"),
-    ("getir.com",             "staj OR intern"),
-    ("trendyol.com",          "staj OR intern"),
-    ("hepsiburada.com",       "staj OR intern"),
-    # Insurance
-    ("allianz.com.tr",        "staj OR intern"),
-    ("axa.com.tr",            "staj OR intern"),
-    ("turkiyesigorta.com.tr", "staj OR intern"),
-    # FMCG / food / pharma
-    ("efes.com",              "staj OR intern"),
-    ("eti.com.tr",            "staj OR intern"),
-    ("hayat.com.tr",          "staj OR intern"),
-    ("abdiibrahim.com.tr",    "staj OR intern"),
-    # International tech (ATS-heavy)
-    ("oracle.com",            "intern turkey istanbul"),
-    ("careers.bat.com",       "intern turkey"),
-    ("jti.com",               "intern turkey"),
-    ("henkel.com",            "intern turkey"),
-    # Job boards that block direct scraping
-    ("kariyer.net",           "staj ilanı"),
-    ("secretcv.com",          "staj ilanı"),
+    ("koc.com.tr",                 "staj OR intern"),
+    ("sabanci.com",                "staj OR intern"),
+    ("eczacibasi.com.tr",          "staj OR intern"),
+    ("anadolugrubu.com.tr",        "staj OR intern"),
+    ("yildizholding.com.tr",       "staj OR intern"),
+    ("baykartech.com",             "staj OR intern"),
+    ("sisecam.com",                "staj OR intern"),
+    ("akbank.com",                 "staj OR intern"),
+    ("garantibbva.com.tr",         "staj OR intern"),
+    ("isbank.com.tr",              "staj OR intern"),
+    ("yapikredi.com.tr",           "staj OR intern"),
+    ("ziraatbank.com.tr",          "staj OR intern"),
+    ("thy.com",                    "staj OR intern"),
+    ("getir.com",                  "staj OR intern"),
+    ("hepsiburada.com",            "staj OR intern"),
+    ("allianz.com.tr",             "staj OR intern"),
+    ("axa.com.tr",                 "staj OR intern"),
+    ("turkiyesigorta.com.tr",      "staj OR intern"),
+    ("efes.com",                   "staj OR intern"),
+    ("eti.com.tr",                 "staj OR intern"),
+    ("hayat.com.tr",               "staj OR intern"),
+    ("abdiibrahim.com.tr",         "staj OR intern"),
+    ("oracle.com",                 "intern turkey istanbul"),
+    ("jti.com",                    "intern turkey"),
+    ("henkel.com",                 "intern turkey"),
+    ("kariyer.net",                "staj ilanı"),
     ("kariyerkapisi.cbiko.gov.tr", "staj"),
 ]
 
+_INTERN_KW   = {"staj", "intern", "trainee", "stajyer", "yetenek programı", "graduate program"}
+_SKIP_KW     = {" senior ", " manager ", " director ", " lead ", " head ", " vp "}
+_RESULTS_PER = 10   # DDG max per query
+
 
 class GoogleCSEScraper(BaseScraper):
-    """Uses Google Custom Search API to discover internship listings."""
+    """DuckDuckGo-based web search scraper (replaces Google CSE)."""
 
-    source_name = "Google CSE"
+    source_name = "DDG Search"
 
     async def scrape(self) -> list[Job]:
-        if not config.GOOGLE_CSE_API_KEY or not config.GOOGLE_CSE_CX:
-            self.logger.info("Google CSE: API key or CX not set, skipping.")
-            return []
-
-        self.logger.info("Scraping via Google CSE …")
-
+        self.logger.info("Scraping via DuckDuckGo …")
         all_jobs: list[Job] = []
-        query_count = 0
 
-        async with aiohttp.ClientSession() as session:
-            # ── 1. General queries ──────────────────────────────
-            for q in _GENERAL_QUERIES:
-                if query_count >= 90:   # stay under 100/day limit
-                    break
-                results = await self._search(session, q)
-                query_count += 1
-                for item in results:
-                    job = self._result_to_job(item)
-                    if job:
-                        all_jobs.append(job)
-                await asyncio.sleep(0.5)   # gentle rate-limiting
+        loop = asyncio.get_event_loop()
 
-            # ── 2. Domain-targeted queries ─────────────────────
-            for domain, kw in _DOMAIN_QUERIES:
-                if query_count >= 90:
-                    break
-                q = f"site:{domain} {kw}"
-                results = await self._search(session, q)
-                query_count += 1
-                for item in results:
-                    job = self._result_to_job(item)
-                    if job:
-                        all_jobs.append(job)
-                await asyncio.sleep(0.5)
+        # General queries
+        for q in _GENERAL_QUERIES:
+            jobs = await loop.run_in_executor(None, self._search_sync, q)
+            all_jobs.extend(jobs)
+            await asyncio.sleep(1.5)   # polite delay between queries
+
+        # Domain-targeted queries
+        for domain, kw in _DOMAIN_QUERIES:
+            q = f"site:{domain} {kw}"
+            jobs = await loop.run_in_executor(None, self._search_sync, q)
+            all_jobs.extend(jobs)
+            await asyncio.sleep(1.5)
 
         # Deduplicate by URL
         seen: set[str] = set()
@@ -129,56 +104,42 @@ class GoogleCSEScraper(BaseScraper):
                 seen.add(j.url)
                 unique.append(j)
 
-        self.logger.info(
-            "Google CSE: %d queries, %d unique results.", query_count, len(unique)
-        )
+        self.logger.info("DDG Search: %d unique results.", len(unique))
         return unique
 
-    async def _search(self, session: aiohttp.ClientSession, query: str) -> list[dict]:
-        params = {
-            "key": config.GOOGLE_CSE_API_KEY,
-            "cx": config.GOOGLE_CSE_CX,
-            "q": query,
-            "num": 10,
-        }
+    def _search_sync(self, query: str) -> list[Job]:
+        """Run a single DDG query (synchronous — called via executor)."""
         try:
-            async with session.get(_CSE_ENDPOINT, params=params, timeout=aiohttp.ClientTimeout(total=15)) as resp:
-                if resp.status == 429:
-                    self.logger.warning("Google CSE: rate limited (429), stopping.")
-                    return []
-                if resp.status != 200:
-                    body = await resp.text()
-                    self.logger.warning("Google CSE: HTTP %d for query '%s': %s", resp.status, query, body[:200])
-                    return []
-                data = await resp.json()
-                return data.get("items", [])
+            with DDGS() as ddgs:
+                results = list(ddgs.text(query, max_results=_RESULTS_PER))
         except Exception as exc:
-            self.logger.warning("Google CSE request error for '%s': %s", query, exc)
+            self.logger.warning("DDG query failed for '%s': %s", query, exc)
             return []
+
+        jobs: list[Job] = []
+        for r in results:
+            job = self._result_to_job(r)
+            if job:
+                jobs.append(job)
+        return jobs
 
     def _result_to_job(self, item: dict) -> Job | None:
         try:
-            title = item.get("title", "").strip()
-            url   = item.get("link", "").strip()
-            snippet = item.get("snippet", "").strip()
+            title   = (item.get("title")   or "").strip()
+            url     = (item.get("href")    or item.get("url") or "").strip()
+            snippet = (item.get("body")    or item.get("snippet") or "").strip()
 
             if not title or not url:
                 return None
 
-            # Filter out irrelevant results
             haystack = (title + " " + snippet + " " + url).lower()
-            intern_kw = {"staj", "intern", "trainee", "yetenek programı", "graduate program", "stajyer"}
-            if not any(kw in haystack for kw in intern_kw):
+            if not any(kw in haystack for kw in _INTERN_KW):
+                return None
+            if any(kw in f" {title.lower()} " for kw in _SKIP_KW):
                 return None
 
-            # Skip senior/manager/director roles
-            skip_kw = {" senior ", " manager ", " director ", " lead ", " head ", " vp "}
-            if any(kw in f" {title.lower()} " for kw in skip_kw):
-                return None
-
-            # Extract company from domain
-            domain = urlparse(url).netloc.lower()
-            company = _domain_to_company(domain) or "Bilinmiyor"
+            domain  = urlparse(url).netloc.lower().lstrip("www.")
+            company = _domain_to_company(domain) or _company_from_title(title) or "Bilinmiyor"
 
             return Job(
                 title=title[:200],
@@ -189,11 +150,11 @@ class GoogleCSEScraper(BaseScraper):
                 description=snippet[:300] if snippet else "",
             )
         except Exception as exc:
-            self.logger.debug("CSE result parse error: %s", exc)
+            self.logger.debug("DDG result parse error: %s", exc)
             return None
 
 
-# ── Domain → Company name map ───────────────────────────────────────────────
+# ── Helpers ──────────────────────────────────────────────────────────────────
 
 _DOMAIN_MAP: dict[str, str] = {
     "koc.com.tr": "Koç Holding", "koccareers.com.tr": "Koç Holding",
@@ -250,17 +211,31 @@ _DOMAIN_MAP: dict[str, str] = {
     "fordotosan.com.tr": "Ford Otosan",
     "borusan.com": "Borusan",
     "toyota-tr.com": "Toyota Türkiye",
+    "diageo.com": "Diageo",
 }
 
 
 def _domain_to_company(domain: str) -> str:
-    domain = domain.lstrip("www.")
     if domain in _DOMAIN_MAP:
         return _DOMAIN_MAP[domain]
-    # Try partial match for subdomains like careers.microsoft.com
     for key, name in _DOMAIN_MAP.items():
         if key in domain or domain in key:
             return name
-    # Fall back to capitalised domain root
     root = domain.split(".")[0]
     return root.capitalize() if root else ""
+
+
+def _company_from_title(title: str) -> str:
+    """Extract company from job-board page titles like 'Title | Company | LinkedIn'."""
+    boards = r"\|\s*(?:LinkedIn|Kariyer\.net|Youthall|Toptalent|Glassdoor|Indeed|DuckDuckGo)\s*$"
+    cleaned = re.sub(boards, "", title, flags=re.IGNORECASE).strip().rstrip("|").strip()
+    if "|" in cleaned:
+        parts = [p.strip() for p in cleaned.split("|") if p.strip()]
+        if len(parts) >= 2:
+            return parts[-1]
+    match = re.search(r"\bat\s+(.+)$", cleaned, re.IGNORECASE)
+    if match:
+        return match.group(1).strip()
+    if " - " in cleaned:
+        return cleaned.split(" - ")[-1].strip()
+    return ""
