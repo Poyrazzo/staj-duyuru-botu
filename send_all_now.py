@@ -16,6 +16,7 @@ from scrapers import (
     LinkedInScraper, KariyerScraper, YouthallScraper,
     ATSScraper, ToptalentScraper, VizyonerGencScraper,
     KariyerKapisiScraper, CompanyCareerScraper, ExtraBoardsScraper,
+    GoogleScraper, GoogleCSEScraper,
 )
 from modules.data_cleaner import DataCleaner
 from modules.notifier import TelegramNotifier
@@ -29,6 +30,7 @@ SCRAPERS = [
     ToptalentScraper, VizyonerGencScraper, KariyerKapisiScraper,
     ExtraBoardsScraper,
 ]
+GOOGLE_SCRAPERS = [GoogleScraper, GoogleCSEScraper]
 
 async def main():
     print(f"\n{BOLD}{'═'*55}")
@@ -71,6 +73,14 @@ async def main():
         print(f"  {G}✓{W} {'CompanyCareerScraper':<30} {len(company_jobs):>3} raw")
     except Exception as e:
         print(f"  {R}✗{W} CompanyCareerScraper: {str(e)[:60]}")
+
+    for cls in GOOGLE_SCRAPERS:
+        try:
+            r = await cls().scrape()
+            all_raw.extend(r)
+            print(f"  {G}✓{W} {cls.__name__:<30} {len(r):>3} raw")
+        except Exception as e:
+            print(f"  {R}✗{W} {cls.__name__:<30} {str(e)[:60]}")
 
     print(f"\n  Total raw: {BOLD}{len(all_raw)}{W}")
 

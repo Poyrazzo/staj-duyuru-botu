@@ -41,7 +41,7 @@ from scrapers import (
     LinkedInScraper, KariyerScraper, YouthallScraper,
     ATSScraper, ToptalentScraper, VizyonerGencScraper,
     KariyerKapisiScraper, CompanyCareerScraper,
-    ExtraBoardsScraper, GoogleScraper,
+    ExtraBoardsScraper, GoogleScraper, GoogleCSEScraper,
 )
 from modules.data_cleaner import DataCleaner
 from modules.notifier import TelegramNotifier
@@ -63,7 +63,8 @@ class Bot:
         self.notifier = TelegramNotifier()
         self.health = HealthChecker(self.db)
         self.extractor = DetailExtractor()
-        self._google = GoogleScraper()
+        self._google     = GoogleScraper()
+        self._google_cse = GoogleCSEScraper()
 
     async def run_once(self, force_google: bool = False) -> int:
         logger.info("=== Scrape cycle at %s ===", datetime.now().strftime("%H:%M:%S"))
@@ -148,10 +149,16 @@ class Bot:
         if force_google or self._google.is_due():
             try:
                 r = await self._google.scrape()
-                logger.info("GoogleScraper → %d", len(r))
+                logger.info("GoogleScraper (company) → %d", len(r))
                 all_jobs.extend(r)
             except Exception as exc:
                 logger.error("GoogleScraper failed: %s", exc)
+            try:
+                r = await self._google_cse.scrape()
+                logger.info("GoogleCSEScraper (web) → %d", len(r))
+                all_jobs.extend(r)
+            except Exception as exc:
+                logger.error("GoogleCSEScraper failed: %s", exc)
 
         return all_jobs
 
