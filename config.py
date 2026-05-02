@@ -6,13 +6,19 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Load target companies list from Companies.txt
-import pathlib
-_companies_file = pathlib.Path(__file__).parent / "Companies.txt"
+# Load target companies from companies.csv (preferred) or Companies.txt fallback
+import pathlib, csv as _csv
+
+_csv_file  = pathlib.Path(__file__).parent / "companies.csv"
+_txt_file  = pathlib.Path(__file__).parent / "Companies.txt"
 COMPANIES_LIST: list[str] = []
-if _companies_file.exists():
-    raw = _companies_file.read_text(encoding="utf-8")
-    COMPANIES_LIST = [c.strip() for c in raw.replace("\n", ",").split(",") if c.strip()]
+
+if _csv_file.exists():
+    with open(_csv_file, encoding="utf-8", newline="") as _f:
+        COMPANIES_LIST = [row["Company"] for row in _csv.DictReader(_f) if row.get("Company", "").strip()]
+elif _txt_file.exists():
+    _raw = _txt_file.read_text(encoding="utf-8")
+    COMPANIES_LIST = [c.strip() for c in _raw.replace("\n", ",").split(",") if c.strip()]
 
 # ── Telegram ─────────────────────────────────────────────────
 TELEGRAM_BOT_TOKEN: str = os.getenv("TELEGRAM_BOT_TOKEN", "")
