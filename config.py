@@ -11,11 +11,17 @@ import pathlib, csv as _csv
 
 _csv_file  = pathlib.Path(__file__).parent / "companies.csv"
 _txt_file  = pathlib.Path(__file__).parent / "Companies.txt"
+COMPANY_ROWS: list[dict[str, str]] = []
 COMPANIES_LIST: list[str] = []
 
 if _csv_file.exists():
     with open(_csv_file, encoding="utf-8", newline="") as _f:
-        COMPANIES_LIST = [row["Company"] for row in _csv.DictReader(_f) if row.get("Company", "").strip()]
+        COMPANY_ROWS = [
+            {k: (v or "").strip() for k, v in row.items()}
+            for row in _csv.DictReader(_f)
+            if row.get("Company", "").strip()
+        ]
+        COMPANIES_LIST = [row["Company"] for row in COMPANY_ROWS]
 elif _txt_file.exists():
     _raw = _txt_file.read_text(encoding="utf-8")
     COMPANIES_LIST = [c.strip() for c in _raw.replace("\n", ",").split(",") if c.strip()]
@@ -216,6 +222,9 @@ LEVER_COMPANIES: dict[str, str] = {
     "Codeway Studios": "codeway",
     # Insider returns 404 on Lever — covered via DDG search
 }
+for _row in COMPANY_ROWS:
+    if _row.get("Scraper Type", "").lower() == "lever" and _row.get("ATS Slug"):
+        LEVER_COMPANIES[_row["Company"]] = _row["ATS Slug"]
 
 WORKABLE_COMPANIES: dict[str, str] = {
     "Getir": "getir",
@@ -231,6 +240,26 @@ class CompanyConfig:
     intern_url: str = ""
     search_keyword: str = "staj"
     extra_urls: list[str] = field(default_factory=list)
+
+
+def _csv_direct_company_configs() -> list[CompanyConfig]:
+    configs: list[CompanyConfig] = []
+    for row in COMPANY_ROWS:
+        if row.get("Scraper Type", "").lower() != "direct":
+            continue
+        url = row.get("Career URL", "")
+        if not url:
+            continue
+        keyword = "intern" if any(token in url.lower() for token in ("intern", "jobs", "careers")) else "staj"
+        configs.append(
+            CompanyConfig(
+                name=row["Company"],
+                careers_url=url,
+                intern_url=url,
+                search_keyword=keyword,
+            )
+        )
+    return configs
 
 # ── Original companies — only verified globally accessible URLs ───────────────
 _ORIGINAL_COMPANIES: list[CompanyConfig] = [
@@ -428,9 +457,19 @@ _INTERNATIONAL_COMPANIES: list[CompanyConfig] = [
 ]
 
 # ── Merge all company configs ─────────────────────────────────
-COMPANY_CONFIGS: list[CompanyConfig] = (
-    _ORIGINAL_COMPANIES + _TURKISH_COMPANIES + _INTERNATIONAL_COMPANIES
+_ALL_COMPANY_CONFIGS: list[CompanyConfig] = (
+    _ORIGINAL_COMPANIES
+    + _TURKISH_COMPANIES
+    + _INTERNATIONAL_COMPANIES
+    + _csv_direct_company_configs()
 )
+COMPANY_CONFIGS: list[CompanyConfig] = list({cfg.name: cfg for cfg in _ALL_COMPANY_CONFIGS}.values())
+SCRAPEABLE_COMPANY_COUNT: int = len({
+    row["Company"]
+    for row in COMPANY_ROWS
+    if row.get("Career URL") or row.get("ATS Slug")
+})
+UNSCRAPEABLE_COMPANY_COUNT: int = len(COMPANY_ROWS) - SCRAPEABLE_COMPANY_COUNT
 
 # ═══════════════════════════════════════════════════════════════
 # GOOGLE CUSTOM SEARCH — DOMAIN LIST

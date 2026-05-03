@@ -63,7 +63,11 @@ class CompanyCareerScraper(BaseScraper):
 
     @retry(stop=stop_after_attempt(2), wait=wait_exponential(multiplier=2, min=5, max=30), reraise=True)
     async def scrape(self) -> list[Job]:
-        self.logger.info("Scraping %d company career pages …", len(config.COMPANY_CONFIGS))
+        self.logger.info(
+            "Scraping %d company career pages (%d CSV companies still need Career URL/ATS metadata) …",
+            len(config.COMPANY_CONFIGS),
+            config.UNSCRAPEABLE_COMPANY_COUNT,
+        )
         try:
             from playwright.async_api import async_playwright
             from playwright_stealth import stealth_async
@@ -172,7 +176,7 @@ class CompanyCareerScraper(BaseScraper):
         jobs = []
         for card in cards[:config.MAX_JOBS_PER_SOURCE]:
             job = await self._parse_card(card, cfg, url)
-            if job:
+            if job and _looks_like_active_internship(job):
                 jobs.append(job)
         return jobs
 
@@ -285,3 +289,35 @@ def _parse_date(raw: str | None) -> str | None:
     if match:
         return (datetime.utcnow() - timedelta(days=int(match.group(1)))).strftime("%Y-%m-%d")
     return None
+
+
+def _looks_like_active_internship(job: Job) -> bool:
+    hay = f" {job.title} {job.description} {job.url} ".lower()
+    intern_signals = (
+        "staj", "stajyer", "intern", "internship", "trainee",
+        "yetenek program", "graduate program", "new grad",
+    )
+    application_signals = (
+        "başvur", "basvur", "apply", "career", "careers", "kariyer",
+        "job", "jobs", "ilan", "position", "opening", "vacancy",
+    )
+    full_time_signals = (
+        "full-time", "full time", "tam zamanlı", "tam zamanli",
+        "specialist", "uzman", "senior", "manager", "director",
+    )
+    if any(signal in hay for signal in full_time_signals):
+        return False
+    if not any(signal in hay for signal in intern_signals):
+        return False
+    if not any(signal in hay for signal in application_signals):
+        return False
+
+    today = datetime.utcnow().date()
+    if job.deadline:
+        try:
+            if datetime.fromisoformat(job.deadline[:10]).date() < today:
+                return False
+        except ValueError:
+            pass
+    years = [int(match) for match in re.findall(r"\b20\d{2}\b", hay)]
+    return not years or max(years) >= today.year

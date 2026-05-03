@@ -10,6 +10,8 @@ Three-stage pipeline:
 
 import logging
 from typing import Iterable
+from datetime import datetime
+import re
 
 import config
 from db.database import Job
@@ -45,6 +47,11 @@ class DataCleaner:
             # ── Stage 1: reject confirmed full-time jobs ─────────
             if job.program_type == "full_time":
                 logger.debug("REJECTED (full_time): %s @ %s", job.title, job.company)
+                continue
+
+            # ── Stage 1b: reject old campaigns / expired deadlines ──
+            if self._is_stale_or_expired(job):
+                logger.debug("REJECTED (stale/expired): %s @ %s", job.title, job.company)
                 continue
 
             # ── Stage 2: blacklist on title+company ──────────────
@@ -101,6 +108,19 @@ class DataCleaner:
         if _contains_any(title_company, self._cs_exclude):
             return False
         return _contains_any(self._haystack(job), self._cs_field)
+
+    def _is_stale_or_expired(self, job: Job) -> bool:
+        today = datetime.utcnow().date()
+        if job.deadline:
+            try:
+                if datetime.fromisoformat(job.deadline[:10]).date() < today:
+                    return True
+            except ValueError:
+                pass
+
+        hay = f"{job.title} {job.description} {job.url}".lower()
+        years = [int(match) for match in re.findall(r"\b20\d{2}\b", hay)]
+        return bool(years) and max(years) < today.year
 
     def _infer_program_type(self, job: Job) -> str:
         hay = self._haystack(job)
