@@ -21,50 +21,46 @@ except ImportError:
 import config
 from db.database import Job
 from .base_scraper import BaseScraper
+from .search_filter import is_actionable_search_result
 
 logger = logging.getLogger(__name__)
 
 # ── General queries ──────────────────────────────────────────────────────────
 _GENERAL_QUERIES = [
-    "staj ilanı 2026 başvuru",
-    "yaz stajı 2026 türkiye",
-    "uzun dönem staj 2026",
-    "internship turkey 2026 apply",
-    "yetenek programı 2026 başvuru",
-    "stajyer alımı 2026",
-    "trainee program türkiye 2026",
+    "software staj ilanı 2026 başvuru",
+    "bilgisayar mühendisliği staj 2026 başvuru",
+    "yazılım stajyer ilanı 2026",
+    "data intern turkey 2026 apply",
+    "internship turkey 2026 software apply",
+    "yapay zeka staj 2026 başvuru",
+    "siber güvenlik staj 2026 başvuru",
 ]
 
 # ── Domain-targeted queries ──────────────────────────────────────────────────
 # Companies/sites we can't reach by direct Playwright scraping
 _DOMAIN_QUERIES = [
-    ("koc.com.tr",                 "staj OR intern"),
-    ("sabanci.com",                "staj OR intern"),
-    ("eczacibasi.com.tr",          "staj OR intern"),
-    ("anadolugrubu.com.tr",        "staj OR intern"),
-    ("yildizholding.com.tr",       "staj OR intern"),
-    ("baykartech.com",             "staj OR intern"),
-    ("sisecam.com",                "staj OR intern"),
-    ("akbank.com",                 "staj OR intern"),
-    ("garantibbva.com.tr",         "staj OR intern"),
-    ("isbank.com.tr",              "staj OR intern"),
-    ("yapikredi.com.tr",           "staj OR intern"),
-    ("ziraatbank.com.tr",          "staj OR intern"),
-    ("thy.com",                    "staj OR intern"),
-    ("getir.com",                  "staj OR intern"),
-    ("hepsiburada.com",            "staj OR intern"),
-    ("allianz.com.tr",             "staj OR intern"),
-    ("axa.com.tr",                 "staj OR intern"),
-    ("turkiyesigorta.com.tr",      "staj OR intern"),
-    ("efes.com",                   "staj OR intern"),
-    ("eti.com.tr",                 "staj OR intern"),
-    ("hayat.com.tr",               "staj OR intern"),
-    ("abdiibrahim.com.tr",         "staj OR intern"),
-    ("oracle.com",                 "intern turkey istanbul"),
-    ("jti.com",                    "intern turkey"),
-    ("henkel.com",                 "intern turkey"),
-    ("kariyer.net",                "staj ilanı"),
-    ("kariyerkapisi.cbiko.gov.tr", "staj"),
+    ("koc.com.tr",                 "(yazılım OR bilgisayar OR data OR staj OR intern) başvuru"),
+    ("sabanci.com",                "(yazılım OR bilgisayar OR data OR staj OR intern) başvuru"),
+    ("eczacibasi.com.tr",          "(yazılım OR bilgisayar OR data OR staj OR intern) başvuru"),
+    ("anadolugrubu.com.tr",        "(yazılım OR bilgisayar OR data OR staj OR intern) başvuru"),
+    ("yildizholding.com.tr",       "(yazılım OR bilgisayar OR data OR staj OR intern) başvuru"),
+    ("baykartech.com",             "(yazılım OR bilgisayar OR data OR staj OR intern) başvuru"),
+    ("sisecam.com",                "(yazılım OR bilgisayar OR data OR staj OR intern) başvuru"),
+    ("akbank.com",                 "(yazılım OR bilgisayar OR data OR staj OR intern) başvuru"),
+    ("garantibbva.com.tr",         "(yazılım OR bilgisayar OR data OR staj OR intern) başvuru"),
+    ("isbank.com.tr",              "(yazılım OR bilgisayar OR data OR staj OR intern) başvuru"),
+    ("yapikredi.com.tr",           "(yazılım OR bilgisayar OR data OR staj OR intern) başvuru"),
+    ("ziraatbank.com.tr",          "(yazılım OR bilgisayar OR data OR staj OR intern) başvuru"),
+    ("thy.com",                    "(yazılım OR bilgisayar OR data OR staj OR intern) başvuru"),
+    ("getir.com",                  "(software OR data OR intern) apply"),
+    ("hepsiburada.com",            "(software OR data OR intern) apply"),
+    ("allianz.com.tr",             "(yazılım OR bilgisayar OR data OR staj OR intern) başvuru"),
+    ("axa.com.tr",                 "(yazılım OR bilgisayar OR data OR staj OR intern) başvuru"),
+    ("turkiyesigorta.com.tr",      "(yazılım OR bilgisayar OR data OR staj OR intern) başvuru"),
+    ("oracle.com",                 "(software OR data OR intern) turkey apply"),
+    ("henkel.com",                 "(software OR data OR intern) turkey apply"),
+    ("kariyer.net",                "yazılım staj ilanı"),
+    ("kariyerkapisi.cbiko.gov.tr", "yazılım staj başvuru"),
 ]
 
 _INTERN_KW   = {"staj", "intern", "trainee", "stajyer", "yetenek programı", "graduate program"}
@@ -130,6 +126,9 @@ class GoogleCSEScraper(BaseScraper):
             snippet = (item.get("body")    or item.get("snippet") or "").strip()
 
             if not title or not url:
+                return None
+
+            if not is_actionable_search_result(title, url, snippet):
                 return None
 
             haystack = (title + " " + snippet + " " + url).lower()

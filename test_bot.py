@@ -132,6 +132,54 @@ async def test_cleaner():
         passed = False
     return passed
 
+
+async def test_search_result_filter():
+    header("4b / Search Result Hygiene")
+    from scrapers.search_filter import is_actionable_search_result
+
+    cases = [
+        (
+            "Software Engineering Intern - Trendyol Careers",
+            "https://jobs.lever.co/trendyol/abc",
+            "Apply for the 2026 software engineering internship.",
+            True,
+        ),
+        (
+            "Yazılım Stajyeri başvuruları başladı",
+            "https://www.example-news.com/teknoloji/yazilim-stajyeri-basvuru",
+            "Son başvuru tarihi ve başvuru linki açıklandı.",
+            True,
+        ),
+        (
+            "I am happy to share that I started my internship at Firm A",
+            "https://www.linkedin.com/posts/person_started-my-internship",
+            "A personal LinkedIn post about starting an internship.",
+            False,
+        ),
+        (
+            "Ahmet Yılmaz staja başladı",
+            "https://www.linkedin.com/feed/update/urn:li:activity:123",
+            "LinkedIn update.",
+            False,
+        ),
+        (
+            "2024 Yaz Stajı başvuruları",
+            "https://company.com/kariyer/staj-2024",
+            "Old internship application announcement.",
+            False,
+        ),
+    ]
+
+    passed = True
+    for title, url, snippet, expected in cases:
+        actual = is_actionable_search_result(title, url, snippet)
+        if actual != expected:
+            fail(f"{title!r}: expected {expected}, got {actual}")
+            passed = False
+    if passed:
+        ok("Search junk blocked while actionable postings still pass")
+    return passed
+
 # ─────────────────────────────────────────────────────────────
 # TEST 5 — Individual scrapers (with timeout)
 # ─────────────────────────────────────────────────────────────
@@ -298,6 +346,7 @@ async def main():
     scores.append(await test_telegram())
     scores.append(await test_database())
     scores.append(await test_cleaner())
+    scores.append(await test_search_result_filter())
 
     scraper_results = await test_scrapers()
     working = sum(1 for v in scraper_results.values()

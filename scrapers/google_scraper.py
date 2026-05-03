@@ -18,6 +18,7 @@ except ImportError:
 import config
 from db.database import Job
 from .base_scraper import BaseScraper
+from .search_filter import is_actionable_search_result
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +58,8 @@ class GoogleScraper(BaseScraper):
                 f'"{company}" '
                 '(software OR yazılım OR bilgisayar OR "computer engineering" OR '
                 'data OR "yapay zeka" OR cybersecurity OR staj OR intern OR internship) '
-                '-senior -manager'
+                '(başvuru OR apply OR careers OR jobs OR kariyer OR ilan) '
+                '-senior -manager -"started my internship" -"staja başladım"'
             )
             async with semaphore:
                 jobs = await loop.run_in_executor(None, self._search_sync, q, company)
@@ -108,6 +110,9 @@ class GoogleScraper(BaseScraper):
             snippet = (item.get("body")   or item.get("snippet") or "").strip()
 
             if not title or not url:
+                return None
+
+            if not is_actionable_search_result(title, url, snippet):
                 return None
 
             haystack = (title + " " + snippet + " " + url).lower()
