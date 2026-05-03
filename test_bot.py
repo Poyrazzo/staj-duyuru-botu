@@ -115,12 +115,17 @@ async def test_cleaner():
                      location="İstanbul", source="Test", url="https://a.com/2")
     fulltime   = Job(title="Data Analyst", company="ACME", location="İstanbul",
                      source="Test", url="https://a.com/3", program_type="full_time")
+    marketing  = Job(title="Marketing Intern", company="Google",
+                     location="İstanbul", source="Test", url="https://a.com/4",
+                     description="Technology company internship")
+    mechanical = Job(title="Mechanical Engineering Intern", company="Ford",
+                     location="İstanbul", source="Test", url="https://a.com/5")
 
-    results = cleaner.clean([intern_job, senior_job, fulltime])
+    results = cleaner.clean([intern_job, senior_job, fulltime, marketing, mechanical])
     passed = True
 
     if len(results) == 1 and results[0].title == "Yazılım Stajyeri":
-        ok("Intern job passed ✓   Senior job blocked ✓   Full-time blocked ✓")
+        ok("Software intern passed ✓   Senior/full-time/non-CS internships blocked ✓")
         ok(f"Category assigned: {results[0].category}")
     else:
         fail(f"Expected 1 job through filter, got {len(results)}: {[j.title for j in results]}")

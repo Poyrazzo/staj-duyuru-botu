@@ -81,8 +81,9 @@ class Bot:
 
         if new_jobs:
             sent = await self.notifier.send_batch(new_jobs)
-            for job in new_jobs:
-                self.db.mark_notified(job.job_id)
+            if sent:
+                for job in new_jobs:
+                    self.db.mark_notified(job.job_id)
             logger.info("Done: %d new internship(s) notified.", sent)
             return sent
 

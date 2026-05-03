@@ -54,5 +54,8 @@ def setup_logging() -> None:
     root.addHandler(file_handler)
 
     # Quiet noisy third-party loggers
-    for noisy in ("httpx", "httpcore", "telegram", "playwright", "asyncio"):
+    for noisy in (
+        "httpx", "httpcore", "telegram", "playwright", "asyncio",
+        "ddgs", "duckduckgo_search", "primp",
+    ):
         logging.getLogger(noisy).setLevel(logging.WARNING)

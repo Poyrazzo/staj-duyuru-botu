@@ -161,6 +161,8 @@ Artık bot her 3 saatte bir otomatik çalışır, Telegram'a bildirim gönderir.
 | `TELEGRAM_CHAT_ID` | — | Bildirim gönderilecek chat |
 | `RUN_INTERVAL_MINUTES` | `180` | Çalışma aralığı (dakika) |
 | `MAX_JOBS_PER_SOURCE` | `50` | Kaynak başına max ilan |
+| `DDG_COMPANY_QUERY_LIMIT` | `80` | DDG güvenlik taramasında sorgulanacak şirket sayısı |
+| `DDG_COMPANY_CONCURRENCY` | `4` | DDG şirket sorguları için eşzamanlılık |
 | `LOOKBACK_DAYS` | `1` | Kaç günlük ilan çekilsin |
 | `HEADLESS` | `true` | `false` yaparak tarayıcıyı görsel aç |
 | `LOG_LEVEL` | `INFO` | DEBUG / INFO / WARNING / ERROR |

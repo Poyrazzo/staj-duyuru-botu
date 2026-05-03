@@ -36,8 +36,8 @@ SOURCE_EMOJI: dict[str, str] = {
 
 class TelegramNotifier:
     def __init__(self, token: str | None = None, chat_id: str | None = None) -> None:
-        self.token = token or config.TELEGRAM_BOT_TOKEN
-        self.chat_id = chat_id or config.TELEGRAM_CHAT_ID
+        self.token = config.TELEGRAM_BOT_TOKEN if token is None else token
+        self.chat_id = config.TELEGRAM_CHAT_ID if chat_id is None else chat_id
         self._bot = None
 
     async def _get_bot(self):
@@ -51,6 +51,9 @@ class TelegramNotifier:
 
     async def send_batch(self, jobs: list[Job]) -> int:
         if not jobs:
+            return 0
+        if not self.token or not self.chat_id:
+            logger.warning("Telegram not configured – skipping batch.")
             return 0
         sent = 0
         if len(jobs) > 3:

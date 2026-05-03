@@ -29,6 +29,8 @@ RUN_INTERVAL_MINUTES: int = int(os.getenv("RUN_INTERVAL_MINUTES", "180"))
 MAX_JOBS_PER_SOURCE: int = int(os.getenv("MAX_JOBS_PER_SOURCE", "50"))
 HEADLESS: bool = os.getenv("HEADLESS", "true").lower() == "true"
 LOOKBACK_DAYS: int = int(os.getenv("LOOKBACK_DAYS", "1"))
+DDG_COMPANY_QUERY_LIMIT: int = int(os.getenv("DDG_COMPANY_QUERY_LIMIT", "80"))
+DDG_COMPANY_CONCURRENCY: int = int(os.getenv("DDG_COMPANY_CONCURRENCY", "4"))
 
 # ── Paths ─────────────────────────────────────────────────────
 DB_PATH: str = os.getenv("DB_PATH", "data/jobs.db")
@@ -69,9 +71,8 @@ WHITELIST_KEYWORDS: list[str] = [
     "genç yetenek", "yetenek programı", "talent",
     "yaz dönemi", "yaz staj", "summer intern",
     "junior staj", "kampüs", "take-off", "takeoff",
-    "graduate", "mezun aday",
-    # New-grad / entry-level aliases used by Turkish tech companies on Lever
-    "new grad", "yeni mezun", "entry level", "entry-level",
+    "graduate", "graduate program", "mezun aday",
+    "new grad", "new graduate", "yeni mezun", "entry level", "entry-level",
     "long term intern", "uzun dönem staj",
 ]
 
@@ -81,6 +82,74 @@ BLACKLIST_KEYWORDS: list[str] = [
     "chief", "freelance", "serbest çalışan",
     "uzman", "specialist", "experienced", "deneyimli",
     "full-time", "tam zamanlı", "kalıcı", "daimi",
+    # Non-Turkey / wrong audience
+    "saudi", "nationals only", "deutschland", "germany",
+    "london", "amsterdam", "dubai", "egypt", "poland",
+]
+
+# ── Software / computer engineering focus ───────────────────────────────────
+# After a job passes the internship gate, it must match at least one of these
+# software-focused signals. Keep this list role/skill-specific; broad words
+# such as "engineer", "mühendis", "digital", or "product" create noisy alerts.
+CS_FIELD_KEYWORDS: list[str] = [
+    # Turkish roles / domains
+    "yazılım", "yazilim", "bilgisayar", "bilişim", "bilisim",
+    "bilgi işlem", "bilgi islem", "bilgi sistem",
+    "yazılım mühendis", "yazilim muhendis",
+    "bilgisayar mühendis", "bilgisayar muhendis",
+    "geliştirici", "gelistirici", "uygulama geliştir", "uygulama gelistir",
+    "mobil uygulama", "web geliştir", "web gelistir",
+    "programlama", "kodlama", "veri ", "veri bilim", "veri bilimi",
+    "veri analiz", "veri analiti", "veri mühendis", "veri muhendis",
+    "veri tabanı", "veri tabani", "yapay zeka", "makine öğren",
+    "makine ogren", "derin öğren", "derin ogren",
+    "siber güvenlik", "siber guvenlik", "siber", "bulut",
+    "ağ yönetim", "ag yonetim", "ağ mühendis", "ag muhendis",
+    "sistem mühendis", "sistem muhendis", "donanım", "donanim",
+    "gömülü", "gomulu", "otomasyon test", "test otomasyon",
+    "oyun geliştir", "oyun gelistir",
+    # English roles / domains
+    "software", "computer science", "computer engineering",
+    "developer", "development", "software engineer", "software engineering",
+    "data ", "data science", "data analyst", "data analytics", "data engineer",
+    "business intelligence", "data visualization",
+    "machine learning", "deep learning", "artificial intelligence",
+    "frontend", "backend", "full stack", "fullstack",
+    "mobile", "android", "ios", "web",
+    "devops", "cloud", "cybersecurity", "cyber security", "infosec",
+    "network engineer", "systems engineer", "infrastructure", "embedded",
+    "information technology", "information systems",
+    "quality assurance", "test engineer", "test automation", "automation testing",
+    "game developer", "game development", "robotics", "mechatronics", "mekatronik",
+    # Tools / languages / platforms
+    "python", "java ", "c++", "c#", "javascript", "typescript",
+    "react", "angular", "vue", "node", "django", "flask",
+    "spring", ".net", "swift", "kotlin", "golang", "rust",
+    "sql", "nosql", "database", "api ", "rest api", "graphql", "microservice",
+    "aws", "azure", "gcp", "docker", "kubernetes",
+    "blockchain", "iot", "ar/vr", "3d", "unity", "unreal",
+    "tableau", "power bi", "git", "linux",
+    # Short tokens with spaces are matched against a padded text haystack.
+    " it ", " ai ", " ml ", " qa ", " bi ", " ui ", " ux ",
+]
+
+# If one of these appears in the title/company text, reject it even if the
+# company or snippet contains a tech word. This prevents "Marketing Intern at
+# Google" or "Finance Data Intern" style false positives.
+CS_EXCLUDE_KEYWORDS: list[str] = [
+    "marketing", "pazarlama", "sales", "satış", "satis",
+    "business development", "iş geliştirme", "is gelistirme",
+    "customer success", "müşteri", "musteri", "crm",
+    "human resources", "hr intern", "recruitment", "insan kaynak",
+    "finance", "finans", "accounting", "muhasebe", "audit", "denetim",
+    "treasury", "hazine", "tax", "vergi", "legal", "hukuk",
+    "procurement", "satın alma", "satin alma", "purchasing",
+    "supply chain", "lojistik", "logistics", "operations", "operasyon",
+    "production", "üretim", "uretim", "manufacturing",
+    "mechanical", "makine mühendis", "makine muhendis",
+    "industrial engineering", "endüstri mühendis", "endustri muhendis",
+    "chemical", "kimya", "civil engineering", "inşaat", "insaat",
+    "pharma", "pharmaceutical", "clinical", "klinik", "medical", "medikal",
 ]
 
 INTERN_CONFIRM_KEYWORDS: list[str] = [

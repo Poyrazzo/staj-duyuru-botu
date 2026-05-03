@@ -39,20 +39,40 @@ class GoogleScraper(BaseScraper):
             logger.info("DDG company search already ran today — skipping.")
             return []
 
-        companies = config.COMPANIES_LIST
+        companies = config.COMPANIES_LIST[:config.DDG_COMPANY_QUERY_LIMIT]
         if not companies:
             logger.info("COMPANIES_LIST is empty — skipping DDG company search.")
             return []
 
-        logger.info("DDG company search: querying %d companies …", len(companies))
+        logger.info(
+            "DDG company search: querying %d companies …",
+            len(companies),
+        )
         all_jobs: list[Job] = []
         loop = asyncio.get_event_loop()
+        semaphore = asyncio.Semaphore(config.DDG_COMPANY_CONCURRENCY)
 
-        for company in companies:
-            q = f'"{company}" (staj OR intern OR internship) -senior -manager'
-            jobs = await loop.run_in_executor(None, self._search_sync, q, company)
-            all_jobs.extend(jobs)
-            await asyncio.sleep(2.0)
+        async def search_company(company: str) -> list[Job]:
+            q = (
+                f'"{company}" '
+                '(software OR yazılım OR bilgisayar OR "computer engineering" OR '
+                'data OR "yapay zeka" OR cybersecurity OR staj OR intern OR internship) '
+                '-senior -manager'
+            )
+            async with semaphore:
+                jobs = await loop.run_in_executor(None, self._search_sync, q, company)
+                await asyncio.sleep(0.5)
+                return jobs
+
+        results = await asyncio.gather(
+            *[search_company(company) for company in companies],
+            return_exceptions=True,
+        )
+        for company, result in zip(companies, results):
+            if isinstance(result, list):
+                all_jobs.extend(result)
+            elif isinstance(result, Exception):
+                logger.warning("DDG query failed for '%s': %s", company, result)
 
         # Deduplicate by URL
         seen: set[str] = set()
