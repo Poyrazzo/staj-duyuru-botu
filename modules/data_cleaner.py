@@ -12,6 +12,7 @@ import logging
 from typing import Iterable
 from datetime import datetime
 import re
+import unicodedata
 
 import config
 from db.database import Job
@@ -144,5 +145,23 @@ class DataCleaner:
 
 def _contains_any(text: str, keywords: list[str]) -> bool:
     """Keyword matcher that supports explicit space-padded short tokens."""
-    hay = f" {text.lower()} "
-    return any(kw in hay for kw in keywords)
+    hay = f" {_normalize_text(text)} "
+    return any(_normalize_text(kw) in hay for kw in keywords)
+
+
+_TURKISH_TRANSLATION = str.maketrans({
+    "ı": "i", "İ": "i",
+    "ğ": "g", "Ğ": "g",
+    "ü": "u", "Ü": "u",
+    "ş": "s", "Ş": "s",
+    "ö": "o", "Ö": "o",
+    "ç": "c", "Ç": "c",
+})
+
+
+def _normalize_text(text: str) -> str:
+    text = str(text).translate(_TURKISH_TRANSLATION).lower()
+    return "".join(
+        ch for ch in unicodedata.normalize("NFKD", text)
+        if not unicodedata.combining(ch)
+    )

@@ -120,6 +120,9 @@ async def test_cleaner():
                      description="Technology company internship")
     mechanical = Job(title="Mechanical Engineering Intern", company="Ford",
                      location="İstanbul", source="Test", url="https://a.com/5")
+    hr_turkish = Job(title="İnsan Kaynakları Stajyeri", company="Hepsiburada",
+                     location="İstanbul", source="Test", url="https://a.com/8",
+                     description="Technology company internship")
     old_campaign = Job(title="Software Engineering Intern 2024", company="Trendyol",
                        location="İstanbul", source="Test", url="https://a.com/6")
     expired = Job(title="Software Engineering Intern", company="Trendyol",
@@ -127,7 +130,8 @@ async def test_cleaner():
                   deadline="2024-12-31")
 
     results = cleaner.clean([
-        intern_job, senior_job, fulltime, marketing, mechanical, old_campaign, expired
+        intern_job, senior_job, fulltime, marketing, mechanical,
+        hr_turkish, old_campaign, expired
     ])
     passed = True
 
@@ -173,6 +177,36 @@ async def test_search_result_filter():
             "2024 Yaz Stajı başvuruları",
             "https://company.com/kariyer/staj-2024",
             "Old internship application announcement.",
+            False,
+        ),
+        (
+            "Yazılım Stajyeri Nedir, Nasıl Olunur?",
+            "https://www.kariyer.net/pozisyonlar/yazilim-stajyeri/nedir",
+            "Yazılım stajyeri maaşları ve meslek rehberi.",
+            False,
+        ),
+        (
+            "Software Intern - High School, Summer 2026 - Hudson",
+            "https://www.localjobs.com/job/hudson/software-intern-high-school-summer-2026",
+            "Apply for a software intern role in Hudson, New Hampshire.",
+            False,
+        ),
+        (
+            "Bilgisayar Mühendisliği",
+            "https://w3.bilecik.edu.tr/bilgisayar/staj",
+            "2025-2026 Eğitim-Öğretim yılı staj duyurusu.",
+            False,
+        ),
+        (
+            "Yazılım Stajyeri İş İlanları - Yazılım Staj İlanları",
+            "https://www.kariyer.net/is-ilanlari/yazilim-stajyeri",
+            "Güncel yazılım stajyeri iş ilanları.",
+            False,
+        ),
+        (
+            "Baykar Kariyer | Sık Sorulan Sorular",
+            "https://baykartech.com/tr/kariyer/sss",
+            "Staj ve yetenek programı hakkında sık sorulan sorular.",
             False,
         ),
     ]

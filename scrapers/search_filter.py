@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import unicodedata
 from datetime import datetime
 from urllib.parse import urlparse
 
@@ -18,6 +19,10 @@ NEWS_DOMAINS = (
     "sozcu.com.tr", "haberturk.com", "ntv.com.tr", "cnnturk.com",
     "dunya.com", "ekonomim.com", "bloomberght.com", "webrazzi.com",
     "donanimhaber.com", "shiftdelete.net",
+)
+
+BLOCKED_DOMAINS = (
+    "gooverseas.com", "localjobs.com",
 )
 
 JOB_URL_HINTS = (
@@ -59,6 +64,39 @@ PERSONAL_UPDATE_PATTERNS = (
     r"\bstajımı\s+tamamlad",
 )
 
+GUIDE_OR_ARTICLE_PATTERNS = (
+    r"\bnedir\b",
+    r"\bnasil\s+olunur\b",
+    r"\bnasil\s+basvurulur\b",
+    r"\bmaasi\b",
+    r"\bne\s+kadar\b",
+    r"\bsik\s+sorulan\s+sorular\b",
+    r"\bkariyerine\s+dair\b",
+    r"\bkacirmak\s+istemezsin\b",
+    r"\bbilgisayar\s+muhendisligi\b",
+    r"\begitim[-\s]ogretim\s+yili\b",
+    r"\bstaj\s+i\s+ve\s+staj\s+ii\b",
+)
+
+DIRECTORY_TITLE_PATTERNS = (
+    r"\bis\s+ilanlari\b",
+    r"\bis\s+firsatlari\b",
+    r"\bstaj\s+ilanlari\b",
+    r"\bstajyer\s+arayan\s+firmalar\b",
+    r"\binternships\s+in\s+turkey\b",
+)
+
+NON_TURKEY_LOCATION_HINTS = (
+    "hudson", "nashua", "new hampshire", "massachusetts", "new york",
+    "california", "texas", "florida", "london", "germany", "deutschland",
+    "dubai", "egypt", "poland", "netherlands",
+)
+
+TURKEY_SIGNALS = (
+    "turkey", "turkiye", "remote", "istanbul", "ankara", "izmir",
+    "kocaeli", "bursa", "eskisehir", "turk", ".tr/",
+)
+
 
 def is_actionable_search_result(title: str, url: str, snippet: str) -> bool:
     """Return True only for search results that look like application pages."""
@@ -72,10 +110,20 @@ def is_actionable_search_result(title: str, url: str, snippet: str) -> bool:
     domain = parsed.netloc.lower().lstrip("www.")
     path = parsed.path.lower()
     text = f" {title} {snippet} {url} ".lower()
+    normalized_text = _normalize_text(text)
+    normalized_title = _normalize_text(title)
 
-    if _is_stale(text):
+    if _is_blocked_domain(domain):
         return False
-    if _is_personal_update(text):
+    if _is_stale(normalized_text):
+        return False
+    if _is_personal_update(normalized_text):
+        return False
+    if _is_guide_or_article(normalized_title):
+        return False
+    if _is_directory_title(normalized_title):
+        return False
+    if _looks_outside_turkey(normalized_text):
         return False
     if _is_blocked_social_result(domain, path):
         return False
@@ -93,7 +141,8 @@ def is_actionable_search_result(title: str, url: str, snippet: str) -> bool:
 
 
 def _contains_any(text: str, needles: tuple[str, ...]) -> bool:
-    return any(needle in text for needle in needles)
+    normalized = _normalize_text(text)
+    return any(_normalize_text(needle) in normalized for needle in needles)
 
 
 def _is_stale(text: str) -> bool:
@@ -105,6 +154,22 @@ def _is_personal_update(text: str) -> bool:
     return any(re.search(pattern, text, flags=re.IGNORECASE) for pattern in PERSONAL_UPDATE_PATTERNS)
 
 
+def _is_guide_or_article(text: str) -> bool:
+    return any(re.search(pattern, text, flags=re.IGNORECASE) for pattern in GUIDE_OR_ARTICLE_PATTERNS)
+
+
+def _is_directory_title(text: str) -> bool:
+    return any(re.search(pattern, text, flags=re.IGNORECASE) for pattern in DIRECTORY_TITLE_PATTERNS)
+
+
+def _looks_outside_turkey(text: str) -> bool:
+    return _contains_any(text, NON_TURKEY_LOCATION_HINTS) and not _contains_any(text, TURKEY_SIGNALS)
+
+
+def _is_blocked_domain(domain: str) -> bool:
+    return any(domain == blocked or domain.endswith(f".{blocked}") for blocked in BLOCKED_DOMAINS)
+
+
 def _is_blocked_social_result(domain: str, path: str) -> bool:
     if "linkedin.com" in domain:
         return not (path.startswith("/jobs/") or "/jobs/view" in path)
@@ -113,3 +178,21 @@ def _is_blocked_social_result(domain: str, path: str) -> bool:
 
 def _is_news_domain(domain: str) -> bool:
     return any(domain == news or domain.endswith(f".{news}") for news in NEWS_DOMAINS)
+
+
+_TURKISH_TRANSLATION = str.maketrans({
+    "ı": "i", "İ": "i",
+    "ğ": "g", "Ğ": "g",
+    "ü": "u", "Ü": "u",
+    "ş": "s", "Ş": "s",
+    "ö": "o", "Ö": "o",
+    "ç": "c", "Ç": "c",
+})
+
+
+def _normalize_text(text: str) -> str:
+    text = str(text).translate(_TURKISH_TRANSLATION).lower()
+    return "".join(
+        ch for ch in unicodedata.normalize("NFKD", text)
+        if not unicodedata.combining(ch)
+    )
