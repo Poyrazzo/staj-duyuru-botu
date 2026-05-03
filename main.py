@@ -77,16 +77,23 @@ class Bot:
         final      = [j for j in enriched if j.program_type != "full_time"]
         final      = DataCleaner.sort_by_date(final)
 
-        new_jobs = [j for j in final if self.db.save_job(j)]
+        new_count = sum(1 for job in final if self.db.save_job(job))
+        pending_jobs = self.db.get_unnotified_jobs()
 
-        if new_jobs:
-            sent = await self.notifier.send_batch(new_jobs)
-            if sent:
-                for job in new_jobs:
-                    self.db.mark_notified(job.job_id)
-            logger.info("Done: %d new internship(s) notified.", sent)
-            return sent
+        if pending_jobs:
+            sent_job_ids = await self.notifier.send_job_batch(
+                pending_jobs,
+                on_sent=self.db.mark_notified,
+            )
+            logger.info(
+                "Done: %d internship(s) notified, %d saved as new.",
+                len(sent_job_ids),
+                new_count,
+            )
+            self.db.checkpoint()
+            return len(sent_job_ids)
 
+        self.db.checkpoint()
         logger.info("Done: no new internships this run.")
         return 0
 

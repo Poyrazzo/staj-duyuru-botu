@@ -3,6 +3,7 @@
 import asyncio
 import logging
 from datetime import datetime
+from collections.abc import Callable
 
 import config
 from db.database import Job
@@ -50,12 +51,19 @@ class TelegramNotifier:
         return await self._send(_format_job_message(job), disable_web_page_preview=True)
 
     async def send_batch(self, jobs: list[Job]) -> int:
+        return len(await self.send_job_batch(jobs))
+
+    async def send_job_batch(
+        self,
+        jobs: list[Job],
+        on_sent: Callable[[str], None] | None = None,
+    ) -> list[str]:
         if not jobs:
-            return 0
+            return []
         if not self.token or not self.chat_id:
             logger.warning("Telegram not configured – skipping batch.")
-            return 0
-        sent = 0
+            return []
+        sent_job_ids: list[str] = []
         if len(jobs) > 3:
             await self._send(
                 f"🔍 <b>{len(jobs)} yeni staj ilanı bulundu!</b>\n"
@@ -64,9 +72,11 @@ class TelegramNotifier:
             await asyncio.sleep(SEND_DELAY)
         for job in jobs:
             if await self.send_job_alert(job):
-                sent += 1
+                sent_job_ids.append(job.job_id)
+                if on_sent:
+                    on_sent(job.job_id)
             await asyncio.sleep(SEND_DELAY)
-        return sent
+        return sent_job_ids
 
     async def send_health_report(self, stats: dict, source_statuses: dict[str, str]) -> None:
         lines = [

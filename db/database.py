@@ -177,6 +177,11 @@ class Database:
         with self._conn() as conn:
             conn.execute("UPDATE jobs SET notified=1 WHERE job_id=?", (job_id,))
 
+    def checkpoint(self) -> None:
+        """Flush WAL contents back into the main database file."""
+        with self._conn() as conn:
+            conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+
     def get_unnotified_jobs(self) -> list["Job"]:
         with self._conn() as conn:
             rows = conn.execute(
